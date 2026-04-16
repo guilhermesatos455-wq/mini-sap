@@ -1,0 +1,54 @@
+{
+  "entities": {
+    "User": {
+      "title": "User",
+      "description": "Registered users of the NatuAssist system",
+      "type": "object",
+      "properties": {
+        "matricula": { "type": "string", "description": "Unique registration number" },
+        "nome": { "type": "string", "description": "Full name" },
+        "senha": { "type": "string", "description": "Hashed password" },
+        "dataRegistro": { "type": "string", "format": "date-time" },
+        "deviceId": { "type": "string" },
+        "token": { "type": "string" },
+        "role": { "type": "string", "enum": ["admin", "user"] }
+      },
+      "required": ["matricula", "nome", "senha", "dataRegistro"]
+    },
+    "BannedDevice": {
+      "title": "Banned Device",
+      "description": "Devices that have been blocked from accessing the system",
+      "type": "object",
+      "properties": {
+        "deviceId": { "type": "string" },
+        "dataBanimento": { "type": "string", "format": "date-time" },
+        "motivo": { "type": "string" }
+      },
+      "required": ["deviceId", "dataBanimento"]
+    },
+    "Settings": {
+      "title": "System Settings",
+      "description": "Global or user-specific audit settings",
+      "type": "object",
+      "properties": {
+        "tolerancia": { "type": "number" },
+        "cfops": { "type": "array" },
+        "mapColunas": { "type": "object" }
+      }
+    }
+  },
+  "firestore": {
+    "/users/{matricula}": {
+      "schema": "User",
+      "description": "Collection of registered users"
+    },
+    "/bannedDevices/{deviceId}": {
+      "schema": "BannedDevice",
+      "description": "Collection of banned hardware IDs"
+    },
+    "/settings/global": {
+      "schema": "Settings",
+      "description": "Global system configuration"
+    }
+  }
+}

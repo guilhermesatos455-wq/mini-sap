@@ -1,0 +1,5 @@
+{
+  "name": "Meu mini sap web",
+  "description": "Auditoria de notas fiscais de entrada versus relatório CKM3 do SAP com suporte a exportação para GitHub e tutorial completo.",
+  "requestFramePermissions": []
+}
