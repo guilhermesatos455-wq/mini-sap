@@ -5,7 +5,7 @@ O **Mini-SAP Web Auditoria** é uma ferramenta de auditoria físcal e financeira
 ## 🌟 Funcionalidades Principais
 
 - **Auditoria Automatizada**: Processamento de arquivos SAP (CKM3) e Notas Fiscais para detecção de divergências de preços, quantidades e impostos.
-- **NatuAssist (IA Local)**: Assistente inteligente alimentado por um modelo Llama 8B rodando localmente (via pendrive), processando dados de auditoria com 100% de privacidade.
+- **NatuAssist (IA Local)**: Assistente inteligente alimentado por um modelo Llama 8B rodando localmente, processando dados de auditoria com 100% de privacidade.
 - **Segurança Robusta**: Autenticação via Google Firebase vinculada à Matrícula Funcional SAP.
 - **Interface Moderna**: Dashboard responsivo com suporte a Dark Mode, gráficos de impacto financeiro e rastreabilidade de decisões.
 - **Conformidade (Compliance)**: Registro de justificativas e histórico de decisões por auditor.
