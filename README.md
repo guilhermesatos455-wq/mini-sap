@@ -58,6 +58,3 @@ Para que o assistente funcione, o servidor Llamafile deve estar ativo:
 ## 📄 Licença
 
 Este projeto é de uso interno para auditoria SAP. Consulte os termos de uso na aba "Termos e LGPD" dentro da aplicação.
-
----
-Desenvolvido para modernizar a auditoria fiscal com o poder da Inteligência Artificial.
