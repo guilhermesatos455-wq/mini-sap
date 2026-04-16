@@ -22,7 +22,7 @@ O **Mini-SAP Web Auditoria** é uma ferramenta de auditoria físcal e financeira
 ### Pré-requisitos
 
 1. **Node.js**: Instalado na versão 18 ou superior.
-2. **Ambiente Local**: Pendrive com o executável Llamafile configurado com o modelo `llama-manual`.
+2. **Ambiente Local**: Pendrive ou na maquina do usuario, com o executável Llamafile configurado com o modelo `llama-manual`.
 
 ### Instalação
 
