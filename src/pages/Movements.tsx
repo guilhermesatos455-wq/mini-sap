@@ -58,6 +58,8 @@ const MovementsPage: React.FC = () => {
     setSelectedPlant,
     movementColumnMapping,
     setMovementColumnMapping,
+    stockColumnMapping,
+    setStockColumnMapping,
     isProcessingMovements,
     movementProcessingStatus,
     movementProgressPercent,
@@ -82,7 +84,9 @@ const MovementsPage: React.FC = () => {
 
   useEffect(() => {
     const setupDragScroll = (ref: React.RefObject<HTMLDivElement>) => {
-      const el = ref.current;
+      const parent = ref.current;
+      const el = parent?.querySelector('.overflow-x-auto') as HTMLDivElement;
+      
       if (!el) return;
 
       let isDown = false;
@@ -234,26 +238,27 @@ const MovementsPage: React.FC = () => {
   };
 
   const exportToExcel = () => {
-    // 1. Prepare raw data
-    const rawData = filteredMovements.map(m => ({
+    // 1. Prepare aggregated data
+    const rawData = reconciliationData.map(m => ({
+      '': '',
       'Material': m.material,
       'Descrição material': m.description,
-      'Tipo de material': m.movementType,
-      'Saldo inicial 30/08/2025': 0, // Placeholder
-      'PRODUÇÃO/COMPRAS': m.quantity > 0 ? m.quantity : 0,
-      'DEVOLUÇÃO/OUTRAS ENTRADAS': 0,
-      'AJUSTE INVENTARIO ENTRADA': 0,
-      'TOTAL ENTRADAS': m.quantity > 0 ? m.quantity : 0,
-      'AJUSTE INVENTARIO SAÍDA': 0,
-      'OUTRAS SAÍDA/DEVOLUÇÃO': 0,
-      'Bonificação': 0,
-      'SAÍDAS (VENDAS)': 0,
-      'SAÍDAS (Perda)': 0,
-      'REPROCESSOS/REQUISIÇÃO': m.quantity < 0 ? Math.abs(m.quantity) : 0,
-      'TOTAL SAIDA': m.quantity < 0 ? Math.abs(m.quantity) : 0,
-      'ESTOQUE MOVIMENTAÇÃO DO MÊS': m.quantity,
-      'ESTOQUE INFORMADO SAP': 0,
-      'CHECK': 0
+      'Descrição Tipo de material': 'Material',
+      'Saldo inicial 30/08/2025': m.initial,
+      'PRODUÇÃO/COMPRAS': m.prod,
+      'DEVOLUÇÃO/OUTRAS ENTRADAS': m.dev,
+      'AJUSTE INVENTARIO ENTRADA': m.adjIn,
+      'TOTAL ENTRADAS': m.initial + m.prod + m.dev + m.adjIn,
+      'AJUSTE INVENTARIO SAÍDA': m.adjOut,
+      'OUTRAS SAÍDA/DEVOLUÇÃO': m.otherOut,
+      'Bonificação': m.bonif,
+      'SAÍDAS (VENDAS)': m.sale,
+      'SAÍDAS (Perda)': m.loss,
+      'REPROCESSOS/REQUISIÇÃO': m.req,
+      'TOTAL SAIDA': m.adjOut + m.otherOut + m.bonif + m.sale + m.loss + m.req,
+      'ESTOQUE MOVIMENTAÇÃO DO MÊS': m.subtotal,
+      'ESTOQUE INFORMADO SAP': m.finalStockReal,
+      'CHECK': m.difference
     }));
 
     // 2. Create worksheet
@@ -264,7 +269,7 @@ const MovementsPage: React.FC = () => {
     
     // 4. Add Headers starting row 5 (to allow for space above)
     const headers = [
-      'Material', 'Descrição material', 'Descrição Tipo de material', 'Saldo inicial 30/08/2025', 
+      '', 'Material', 'Descrição material', 'Descrição Tipo de material', 'Saldo inicial 30/08/2025', 
       'PRODUÇÃO/COMPRAS', 'DEVOLUÇÃO/OUTRAS ENTRADAS', 'AJUSTE INVENTARIO ENTRADA', 'TOTAL ENTRADAS',
       'AJUSTE INVENTARIO SAÍDA', 'OUTRAS SAÍDA/DEVOLUÇÃO', 'Bonificação', 'SAÍDAS (VENDAS)', 
       'SAÍDAS (Perda)', 'REPROCESSOS/REQUISIÇÃO', 'TOTAL SAIDA', 'ESTOQUE MOVIMENTAÇÃO DO MÊS', 
@@ -288,26 +293,27 @@ const MovementsPage: React.FC = () => {
       material: m.material,
       description: m.description,
       initial: 0,
-      prod: 0, // G8
-      dev: 0, // H8
-      adjIn: 0, // I8
-      adjOut: 0, // K8
-      otherOut: 0, // L8
-      bonif: 0, // M8
-      sale: 0, // N8
-      loss: 0, // O8
-      req: 0, // P8
-      finalStockReal: 0 // S8
+      prod: 0, 
+      dev: 0, 
+      adjIn: 0, 
+      adjOut: 0, 
+      otherOut: 0, 
+      bonif: 0, 
+      sale: 0, 
+      loss: 0, 
+      req: 0, 
+      finalStockReal: 0 
     });
 
+    // CORREÇÃO 1: Usando += para acumular estoques de múltiplos lotes/depósitos
     initialStockPositions.forEach(p => {
       if (!materials[p.material]) materials[p.material] = getBase(p);
-      materials[p.material].initial = p.quantity;
+      materials[p.material].initial += p.quantity;
     });
 
     finalStockPositions.forEach(p => {
       if (!materials[p.material]) materials[p.material] = getBase(p);
-      materials[p.material].finalStockReal = p.quantity;
+      materials[p.material].finalStockReal += p.quantity;
     });
 
     movements.forEach(m => {
@@ -317,7 +323,6 @@ const MovementsPage: React.FC = () => {
       if (type) {
         let category = type.category;
 
-        // Lógica Dinâmica para códigos específicos
         if (['309', '325', '321'].includes(m.movementType)) {
           category = m.quantity >= 0 ? 'ADJUSTMENT_ENTRY' : 'ADJUSTMENT_EXIT';
         }
@@ -329,12 +334,15 @@ const MovementsPage: React.FC = () => {
             case 'PRODUCTION_PURCHASE': materials[m.material].prod += qty; break;
             case 'RETURN_ENTRY': materials[m.material].dev += qty; break;
             case 'ADJUSTMENT_ENTRY': materials[m.material].adjIn += qty; break;
-            case 'ADJUSTMENT_EXIT': materials[m.material].adjOut += Math.abs(qty); break; // Always use absolute for subtraction later
-            case 'OTHER_EXIT': materials[m.material].otherOut += Math.abs(qty); break;
-            case 'BONIFICATION': materials[m.material].bonif += Math.abs(qty); break;
-            case 'SALE': materials[m.material].sale += Math.abs(qty); break;
-            case 'LOSS': materials[m.material].loss += Math.abs(qty); break;
-            case 'REQUISITION': materials[m.material].req += Math.abs(qty); break;
+            
+            // CORREÇÃO 2: Usando '-= qty' para que estornos positivos (mov. de anulação) abatam das saídas
+            case 'ADJUSTMENT_EXIT': materials[m.material].adjOut -= qty; break;
+            case 'OTHER_EXIT': materials[m.material].otherOut -= qty; break;
+            case 'BONIFICATION': materials[m.material].bonif -= qty; break;
+            case 'SALE': materials[m.material].sale -= qty; break;
+            case 'LOSS': materials[m.material].loss -= qty; break;
+            case 'REQUISITION': materials[m.material].req -= qty; break;
+            
             case 'FINAL_STOCK': if (finalStockPositions.length === 0) materials[m.material].finalStockReal += qty; break;
           }
         }
@@ -342,10 +350,13 @@ const MovementsPage: React.FC = () => {
     });
 
     return Object.values(materials).map((m: any) => {
-      const totalIn = m.initial + m.prod + m.dev + m.adjIn; // J8
-      const totalOut = m.adjOut + m.otherOut + m.bonif + m.sale + m.loss + m.req; // Q8
-      const subtotal = totalIn - totalOut; // R8 (Assuming out is positive mag)
-      const difference = subtotal - m.finalStockReal; // T8
+      const totalIn = m.initial + m.prod + m.dev + m.adjIn; 
+      const totalOut = m.adjOut + m.otherOut + m.bonif + m.sale + m.loss + m.req; 
+      const subtotal = totalIn - totalOut; 
+      
+      // CORREÇÃO 3: Arredondamento para 3 casas decimais para matar o lixo de memória de float do JS
+      const difference = Math.round((subtotal - m.finalStockReal) * 1000) / 1000;
+      
       return { ...m, totalIn, totalOut, subtotal, difference };
     }).filter((m: any) => 
       m.material.toLowerCase().includes(searchTerm.toLowerCase()) || 

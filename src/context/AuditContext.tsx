@@ -27,7 +27,7 @@ import { useMovementsWorker } from '../hooks/useMovementsWorker';
 import { mergeItemData, recalculateTotals, persistComment, calculateItemImpact } from '../utils/auditUtils';
 import { safeLocalStorageSet, safeLocalStorageGet, setLargeData, getLargeData } from '../utils/storageUtils';
 
-import { Divergencia, SAPMovementType, MaterialMovement, AuditRecipe, StockPosition, MovementColumnMapping } from '../types/audit';
+import { Divergencia, SAPMovementType, MaterialMovement, AuditRecipe, StockPosition, MovementColumnMapping, StockColumnMapping } from '../types/audit';
 
 interface AuditContextType {
   darkMode: boolean;
@@ -128,6 +128,8 @@ interface AuditContextType {
   setSelectedPlant: (plant: '1001' | '1005') => void;
   movementColumnMapping: MovementColumnMapping;
   setMovementColumnMapping: (m: MovementColumnMapping) => void;
+  stockColumnMapping: StockColumnMapping;                
+  setStockColumnMapping: (m: StockColumnMapping) => void;
   movementFiles: File[];
   setMovementFiles: (files: File[]) => void;
   isProcessingMovements: boolean;
@@ -648,6 +650,20 @@ export const AuditProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     });
   });
 
+  const [stockColumnMapping, setStockColumnMapping] = useState<StockColumnMapping>(() => {
+    return safeLocalStorageGet('miniSapStockMapping', {
+      material: 0,
+      description: 1,
+      plant: 4,
+      quantity: 11,
+      startRow: 7
+    });
+  });
+
+  useEffect(() => {
+    safeLocalStorageSet('miniSapStockMapping', stockColumnMapping);
+  }, [stockColumnMapping]);
+
   const [movementFiles, setMovementFiles] = useState<File[]>([]);
   const { 
     isProcessing: isProcessingMovements, 
@@ -667,7 +683,7 @@ export const AuditProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       // (Simplified: we overwrite the specific keys in IDB which handles current data)
       setStatus('⚙️ Processando novos dados e otimizando armazenamento...');
 
-      const result = await processarMovimentosWorker(movementFiles, initialStockFiles, finalStockFiles, selectedPlant, movementColumnMapping);
+      const result = await processarMovimentosWorker(movementFiles, initialStockFiles, finalStockFiles, selectedPlant, movementColumnMapping, stockColumnMapping);
       
       const savedMovements = await setLargeData('miniSapMovements', result.movements);
       if (!savedMovements) addToast('Erro: Falha ao salvar movimentos no IndexedDB', 'error');
@@ -1205,6 +1221,7 @@ export const AuditProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     initialStockPositions, finalStockPositions,
     selectedPlant, setSelectedPlant,
     movementColumnMapping, setMovementColumnMapping,
+    stockColumnMapping, setStockColumnMapping,
     isProcessingMovements, movementProcessingStatus, movementProgressPercent,
     processarMovimentacoes,
     recipes: recipes || [],
@@ -1241,6 +1258,7 @@ export const AuditProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     finalStockPositions,
     selectedPlant,
     movementColumnMapping,
+    stockColumnMapping,
     isProcessingMovements, movementProcessingStatus, movementProgressPercent,
     processarMovimentacoes,
     recipes

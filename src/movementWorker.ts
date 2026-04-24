@@ -50,7 +50,7 @@ const fuzzyDetect = (headers: any[], synonyms: string[]): number => {
 };
 
 self.onmessage = async (e) => {
-  const { filesData, filesNames, fileTypes, plant, mapping } = e.data;
+  const { filesData, filesNames, fileTypes, plant, mapping, stockMapping } = e.data;
 
   try {
     const allMovements: any[] = [];
@@ -166,26 +166,31 @@ self.onmessage = async (e) => {
         
         // Detectar início dos dados e identificar colunas
         let dataStartIdx = 0;
-        let idxMat = 0;
-        let idxDesc = 1;
-        let idxPlant = 4;
-        let idxQtd = 11;
+        let idxMat = stockMapping?.material ?? 0;
+        let idxDesc = stockMapping?.description ?? 1;
+        let idxPlant = stockMapping?.plant ?? 4;
+        let idxQtd = stockMapping?.quantity ?? 11;
 
-        for (let i = 0; i < Math.min(data.length, 25); i++) {
-          const row = data[i];
-          if (row && row.some(cell => typeof cell === 'string' && cell.toUpperCase().includes('MATERIAL'))) {
-            dataStartIdx = i + 1;
-            const headers = row;
-            const fMat = fuzzyDetect(headers, ['Material', 'Cód.']);
-            const fDesc = fuzzyDetect(headers, ['Descrição', 'Texto Breve']);
-            const fPlant = fuzzyDetect(headers, ['Centro', 'Plant', 'Plnt']);
-            const fQtd = fuzzyDetect(headers, ['Estoque', 'Quantidade', 'Livre', 'Final']);
-            if (fMat >= 0) idxMat = fMat;
-            if (fDesc >= 0) idxDesc = fDesc;
-            if (fPlant >= 0) idxPlant = fPlant;
-            if (fQtd >= 0) idxQtd = fQtd;
-            break;
+        if (!stockMapping) {
+          for (let i = 0; i < Math.min(data.length, 25); i++) {
+            const row = data[i];
+            if (row && row.some(cell => typeof cell === 'string' && cell.toUpperCase().includes('MATERIAL'))) {
+              dataStartIdx = i + 1;
+              const headers = row;
+              const fMat = fuzzyDetect(headers, ['Material', 'Cód.']);
+              const fDesc = fuzzyDetect(headers, ['Descrição', 'Texto Breve']);
+              const fPlant = fuzzyDetect(headers, ['Centro', 'Plant', 'Plnt']);
+              const fQtd = fuzzyDetect(headers, ['Estoque', 'Quantidade', 'Livre', 'Final']);
+              if (fMat >= 0) idxMat = fMat;
+              if (fDesc >= 0) idxDesc = fDesc;
+              if (fPlant >= 0) idxPlant = fPlant;
+              if (fQtd >= 0) idxQtd = fQtd;
+              break;
+            }
           }
+        } else {
+           // Se mapeamento está definido, usamos startRow configurado (ou 1 se não definido)
+           dataStartIdx = stockMapping.startRow ?? 1;
         }
 
         for (let i = dataStartIdx; i < data.length; i++) {

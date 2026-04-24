@@ -186,3 +186,11 @@ export interface MovementColumnMapping {
   plant?: number;
   user?: number;
 }
+
+export interface StockColumnMapping {
+  material: number;
+  description: number;
+  plant: number;
+  quantity: number;
+  startRow: number;
+}
