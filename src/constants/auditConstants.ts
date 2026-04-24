@@ -19,7 +19,7 @@ export const EXPORT_COLUMNS = [
   { id: 'valorTotalSemFrete', label: 'Total s/ Frete' },
   { id: 'valorTotalComFrete', label: 'Total c/ Frete' },
   { id: 'quantidade', label: 'Quantidade' },
-  { id: 'precoEfetivo', label: 'Preço NF' },
+  { id: 'precoEfetivo', label: 'Taxa de Câmbio' },
   { id: 'custoPadrao', label: 'Custo SAP' },
   { id: 'variacaoPerc', label: 'Variação %' },
   { id: 'impactoFinanceiro', label: 'Impacto Financeiro' },

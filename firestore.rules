@@ -33,21 +33,25 @@ service cloud.firestore {
       return request.auth != null;
     }
 
+    function isNatulab() {
+      return isAuthenticated() && request.auth.token.email.endsWith('@natulab.com.br');
+    }
+
     function isAdmin() {
-      return isAuthenticated() && 
+      return isNatulab() && 
         (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin' ||
          (request.auth.token.email == "guilhermesatos455@gmail.com" && request.auth.token.email_verified == true));
     }
 
-    function isOwner(matricula) {
-      return isAuthenticated() && request.auth.uid == matricula;
+    function isOwner(uid) {
+      return isAuthenticated() && request.auth.uid == uid;
     }
 
     function isValidUser(data) {
-      return data.keys().hasAll(['matricula', 'nome', 'senha', 'dataRegistro']) &&
-             data.matricula is string && data.matricula.size() > 0 && data.matricula.size() < 20 &&
-             data.nome is string && data.nome.size() > 0 && data.nome.size() < 100 &&
-             data.senha is string && data.senha.size() > 0 &&
+      return data.keys().hasAll(['matricula', 'nome', 'uid', 'dataRegistro']) &&
+             data.matricula is string && data.matricula.size() > 0 &&
+             data.nome is string && data.nome.size() > 0 &&
+             data.uid == request.auth.uid &&
              data.dataRegistro is string;
     }
 
@@ -61,12 +65,17 @@ service cloud.firestore {
     // Rules
     // ===============================================================
 
-    match /users/{matricula} {
-      allow get: if true;
+    match /users/{uid} {
+      allow get: if isAuthenticated();
       allow list: if isAdmin();
-      allow create: if isAuthenticated() && isValidUser(request.resource.data) && (isOwner(matricula) || isAdmin());
-      allow update: if isAuthenticated() && isValidUser(request.resource.data) && (isOwner(matricula) || isAdmin());
+      allow create: if isNatulab() && isValidUser(request.resource.data) && isOwner(uid);
+      allow update: if isNatulab() && isValidUser(request.resource.data) && (isOwner(uid) || isAdmin());
       allow delete: if isAdmin();
+    }
+
+    match /ai_logs/{logId} {
+      allow create: if isNatulab();
+      allow read, delete: if isAdmin();
     }
 
     match /bannedDevices/{deviceId} {

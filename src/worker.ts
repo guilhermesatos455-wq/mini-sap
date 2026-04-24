@@ -46,7 +46,7 @@ const parseExcelDate = (val: any): Date | null => {
 };
 
 self.onmessage = (e) => {
-  const {
+    const {
     filesNfData,
     fileCkm3Data,
     fileCkm3Name,
@@ -56,7 +56,8 @@ self.onmessage = (e) => {
     dataFim,
     colunaData,
     mapColunas,
-    filesNames
+    filesNames,
+    recipes // Receitas personalizadas
   } = e.data;
 
   try {
@@ -136,14 +137,37 @@ self.onmessage = (e) => {
       return s.substring(start);
     };
 
-    // 2. Indexação do CKM3 (Lógica Sênior: Inicia na Linha 2 / Índice 1)
+    // Helper para Mapeamento Automático (Fuzzy Mapping)
+    const fuzzyDetect = (headers: any[], synonyms: string[], expectedCol: string): number => {
+      // 1. Tentar o mapeamento manual primeiro
+      if (expectedCol && expectedCol.length >= 1) {
+        try {
+          const idx = XLSX.utils.decode_col(expectedCol.toUpperCase());
+          if (idx >= 0 && idx < headers.length) return idx;
+        } catch (e) {}
+      }
+
+      // 2. Tentar busca exata ou por sinônimos nos cabeçalhos
+      for (let i = 0; i < headers.length; i++) {
+        const h = String(headers[i] || '').trim().toUpperCase();
+        if (!h) continue;
+
+        if (synonyms.some(syn => h.includes(syn.toUpperCase()) || syn.toUpperCase().includes(h))) {
+          return i;
+        }
+      }
+      return -1;
+    };
+
+    // 2. Indexação do CKM3
     const startRowCkm3 = 1;
-    const idxCkm3Mat = XLSX.utils.decode_col(mapColunas.ckm3Mat || 'C');
-    const idxCkm3Custo = XLSX.utils.decode_col(mapColunas.ckm3Custo || 'L');
-    const idxCkm3Qtd = XLSX.utils.decode_col(mapColunas.ckm3Qtd || 'I');
-    const idxCkm3Centro = XLSX.utils.decode_col(mapColunas.ckm3Centro || 'C');
-    const idxCkm3Desc = XLSX.utils.decode_col(mapColunas.ckm3Desc || 'D');
-    const idxCkm3Categoria = XLSX.utils.decode_col(mapColunas.ckm3Categoria || 'G');
+    const headersCKM3 = dataCKM3[0] || [];
+    const idxCkm3Mat = fuzzyDetect(headersCKM3, ['Material', 'Cod. Material', 'Produto', 'Cod. Mat'], mapColunas.ckm3Mat || 'C');
+    const idxCkm3Custo = fuzzyDetect(headersCKM3, ['Preço', 'Custo', 'PMM', 'Unitário', 'Valor Unit'], mapColunas.ckm3Custo || 'L');
+    const idxCkm3Qtd = fuzzyDetect(headersCKM3, ['Quantidade', 'Estoque', 'Qtd', 'Saldo'], mapColunas.ckm3Qtd || 'I');
+    const idxCkm3Centro = fuzzyDetect(headersCKM3, ['Centro', 'Planta', 'Plant', 'Local'], mapColunas.ckm3Centro || 'C');
+    const idxCkm3Desc = fuzzyDetect(headersCKM3, ['Descrição', 'Nome', 'Texto', 'Description', 'Material Desc'], mapColunas.ckm3Desc || 'D');
+    const idxCkm3Categoria = fuzzyDetect(headersCKM3, ['Categoria', 'Cat.', 'Category'], mapColunas.ckm3Categoria || 'G');
     const categoriaFiltroRaw = mapColunas.ckm3CategoriaFiltro || [];
     const categoriaFiltro = Array.isArray(categoriaFiltroRaw) 
       ? categoriaFiltroRaw.map((s: string) => s.trim().toUpperCase()).filter(Boolean)
@@ -250,31 +274,34 @@ self.onmessage = (e) => {
 
       // 3. Processamento das NFs (Lógica Sênior: Inicia na Linha 8 / Índice 7)
       const startRowNf = 7;
-      const idxNfCfop = XLSX.utils.decode_col(mapColunas.nfCfop || 'H');
-      const idxNfMat = XLSX.utils.decode_col(mapColunas.nfMat || 'K');
-      const idxNfPreco = XLSX.utils.decode_col(mapColunas.nfPreco || 'T');
-      const idxNfQtd = XLSX.utils.decode_col(mapColunas.nfQtd || 'U');
-      const idxNfDesc = XLSX.utils.decode_col(mapColunas.nfDesc || 'L');
-      const idxNfFornecedor = XLSX.utils.decode_col(mapColunas.nfFornecedor || 'E');
-      const idxNfCentro = XLSX.utils.decode_col(mapColunas.nfCentro || 'C');
-      const idxNfIcms = mapColunas.nfIcms ? XLSX.utils.decode_col(mapColunas.nfIcms) : -1;
-      const idxNfIpi = mapColunas.nfIpi ? XLSX.utils.decode_col(mapColunas.nfIpi) : -1;
-      const idxNfPis = mapColunas.nfPis ? XLSX.utils.decode_col(mapColunas.nfPis) : -1;
-      const idxNfCofins = mapColunas.nfCofins ? XLSX.utils.decode_col(mapColunas.nfCofins) : -1;
-      const idxNfEmpresa = mapColunas.nfEmpresa ? XLSX.utils.decode_col(mapColunas.nfEmpresa) : -1;
-      const idxNfNumeroNF = mapColunas.nfNumeroNF ? XLSX.utils.decode_col(mapColunas.nfNumeroNF) : -1;
-      const idxNfTipoMaterial = mapColunas.nfTipoMaterial ? XLSX.utils.decode_col(mapColunas.nfTipoMaterial) : -1;
-      const idxNfCategoriaNF = mapColunas.nfCategoriaNF ? XLSX.utils.decode_col(mapColunas.nfCategoriaNF) : -1;
-      const idxNfOrigemMaterial = mapColunas.nfOrigemMaterial ? XLSX.utils.decode_col(mapColunas.nfOrigemMaterial) : -1;
-      const idxNfDataLancamento = mapColunas.nfDataLancamento ? XLSX.utils.decode_col(mapColunas.nfDataLancamento) : -1;
+      const headersNF = dataNF[startRowNf - 1] || [];
+      
+      const idxNfCfop = fuzzyDetect(headersNF, ['CFOP', 'C.F.O.P'], mapColunas.nfCfop || 'H');
+      const idxNfMat = fuzzyDetect(headersNF, ['Material', 'Cod. Material'], mapColunas.nfMat || 'K');
+      const idxNfPreco = fuzzyDetect(headersNF, ['Preço', 'Efetivo', 'Valor Unit'], mapColunas.nfPreco || 'T');
+      const idxNfQtd = fuzzyDetect(headersNF, ['Quantidade', 'Qtd'], mapColunas.nfQtd || 'U');
+      const idxNfDesc = fuzzyDetect(headersNF, ['Descrição', 'Texto'], mapColunas.nfDesc || 'L');
+      const idxNfFornecedor = fuzzyDetect(headersNF, ['Fornecedor', 'Vendor', 'Emitente'], mapColunas.nfFornecedor || 'E');
+      const idxNfCentro = fuzzyDetect(headersNF, ['Centro', 'Plant'], mapColunas.nfCentro || 'C');
+      
+      const idxNfIcms = fuzzyDetect(headersNF, ['ICMS'], mapColunas.nfIcms);
+      const idxNfIpi = fuzzyDetect(headersNF, ['IPI'], mapColunas.nfIpi);
+      const idxNfPis = fuzzyDetect(headersNF, ['PIS'], mapColunas.nfPis);
+      const idxNfCofins = fuzzyDetect(headersNF, ['COFINS'], mapColunas.nfCofins);
+      
+      const idxNfEmpresa = fuzzyDetect(headersNF, ['Empresa', 'Company'], mapColunas.nfEmpresa);
+      const idxNfNumeroNF = fuzzyDetect(headersNF, ['NF', 'Nota', 'Número'], mapColunas.nfNumeroNF);
+      const idxNfTipoMaterial = fuzzyDetect(headersNF, ['Tipo Material'], mapColunas.nfTipoMaterial);
+      const idxNfCategoriaNF = fuzzyDetect(headersNF, ['Categoria NF'], mapColunas.nfCategoriaNF);
+      const idxNfOrigemMaterial = fuzzyDetect(headersNF, ['Origem'], mapColunas.nfOrigemMaterial);
+      const idxNfDataLancamento = fuzzyDetect(headersNF, ['Data Lanc', 'Lançamento'], mapColunas.nfDataLancamento);
 
-      // Novas colunas solicitadas (V a AA)
-      const idxNfPrecoSemFrete = mapColunas.precoSemFrete ? XLSX.utils.decode_col(mapColunas.precoSemFrete) : -1;
-      const idxNfPrecoComFrete = mapColunas.precoComFrete ? XLSX.utils.decode_col(mapColunas.precoComFrete) : -1;
-      const idxNfValorLiqSemFrete = mapColunas.valorLiqSemFrete ? XLSX.utils.decode_col(mapColunas.valorLiqSemFrete) : -1;
-      const idxNfValorLiqComFrete = mapColunas.valorLiqComFrete ? XLSX.utils.decode_col(mapColunas.valorLiqComFrete) : -1;
-      const idxNfValorTotalSemFrete = mapColunas.valorTotalSemFrete ? XLSX.utils.decode_col(mapColunas.valorTotalSemFrete) : -1;
-      const idxNfValorTotalComFrete = mapColunas.valorTotalComFrete ? XLSX.utils.decode_col(mapColunas.valorTotalComFrete) : -1;
+      const idxNfPrecoSemFrete = fuzzyDetect(headersNF, ['Sem Frete'], mapColunas.precoSemFrete);
+      const idxNfPrecoComFrete = fuzzyDetect(headersNF, ['Com Frete'], mapColunas.precoComFrete);
+      const idxNfValorLiqSemFrete = fuzzyDetect(headersNF, ['Liq. Sem Frete'], mapColunas.valorLiqSemFrete);
+      const idxNfValorLiqComFrete = fuzzyDetect(headersNF, ['Liq. Com Frete'], mapColunas.valorLiqComFrete);
+      const idxNfValorTotalSemFrete = fuzzyDetect(headersNF, ['Total Sem Frete'], mapColunas.valorTotalSemFrete);
+      const idxNfValorTotalComFrete = fuzzyDetect(headersNF, ['Total Com Frete'], mapColunas.valorTotalComFrete);
 
       const indices = { 
         idxNfCfop, idxNfMat, idxNfPreco, idxNfQtd, idxNfDesc, idxNfFornecedor, idxNfCentro,
@@ -464,6 +491,8 @@ self.onmessage = (e) => {
             comentarios: '',
             custoPadrao: 0,
             variacaoPerc: 0,
+            appliedRecipes: [],
+            suggestedCause: null,
             _search: `${codMatNF} ${descricao} ${fornecedor || 'N/A'}`.toLowerCase()
           };
 
@@ -570,6 +599,13 @@ self.onmessage = (e) => {
     // Ordena divergências pelo maior impacto financeiro (absoluto)
     divergencias.sort((a, b) => Math.abs(b.impactoFinanceiro) - Math.abs(a.impactoFinanceiro));
 
+    const catalogMateriais = Array.from(dictCKM3.entries()).map(([material, data]) => ({
+      material,
+      descricao: data.descricao,
+      custoPadrao: data.custo,
+      qtdEstoque: data.qtdEstoque
+    }));
+
     self.postMessage({
       type: 'done',
       resultado: {
@@ -579,6 +615,7 @@ self.onmessage = (e) => {
         qtdAusentes,
         divergencias,
         todosOsItens,
+        catalogMateriais,
         notasNaoLancadas,
         uniqueValues: {
           cfops: Array.from(cfopsSetUnique).sort(),

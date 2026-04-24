@@ -14,11 +14,15 @@ import {
   Shield,
   LogIn,
   LogOut,
-  UserCheck
+  UserCheck,
+  Info,
+  BadgeCheck,
+  ArrowLeft
 } from 'lucide-react';
 import { aiService, Message } from '../../services/aiService';
 import { useAudit } from '../../context/AuditContext';
 import { Link } from 'react-router-dom';
+import Tooltip from '../Tooltip';
 import bcrypt from 'bcryptjs';
 
 const AIAssistant: React.FC = () => {
@@ -32,9 +36,12 @@ const AIAssistant: React.FC = () => {
     aiUser,
     setAiUser,
     loginWithGoogle,
+    loginWithMicrosoft,
     logout,
     completeRegistration,
-    isAuthReady
+    isAuthReady,
+    logAIInteraction,
+    resultado
   } = useAudit();
   const [isMinimized, setIsMinimized] = useState(false);
   const [input, setInput] = useState('');
@@ -64,6 +71,29 @@ const AIAssistant: React.FC = () => {
     setIsLoading(true);
     setError(null);
     
+    // Injetar contexto da sessão de auditoria se houver resultado
+    let contextualHistory = [...history];
+    
+    if (resultado && resultado.divergencias && resultado.divergencias.length > 0) {
+      const summary = `
+        CONTEXTO DA SESSÃO ATUAL:
+        - Divergências Encontradas: ${resultado.qtdDiv}
+        - Total Prejuízo (Acima do Custo): ${new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(resultado.totalPrejuizo)}
+        - Total Economia (Abaixo do Custo): ${new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(resultado.totalEconomia)}
+        - Materiais Não Encontrados no CKM3: ${resultado.qtdAusentes}
+        - Top 3 Divergências por Impacto:
+          ${resultado.divergencias.slice(0, 3).map((d: any) => `1. ${d.descricao} (${d.material}): ${new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(d.impactoFinanceiro)} - Variação: ${d.variacaoPerc.toFixed(2)}%`).join('\n')}
+      `;
+      
+      const systemMessage: Message = { 
+        role: 'system', 
+        content: `Você está auxiliando o auditor da Natulab. Use o seguinte resumo da sessão atual para responder perguntas se necessário: ${summary}` 
+      };
+      
+      // Inserir mensagem de sistema no início para dar contexto
+      contextualHistory = [systemMessage, ...history];
+    }
+
     // Timer para avisar sobre lentidão se demorar mais de 5 segundos
     const slowLoadingTimer = setTimeout(() => {
       setMessages(prev => [...prev, { 
@@ -75,9 +105,12 @@ const AIAssistant: React.FC = () => {
     try {
       try {
         // stream: false é o padrão quando não passamos o callback de stream
-        const response = await aiService.chat(history);
+        const response = await aiService.chat(contextualHistory);
         clearTimeout(slowLoadingTimer);
         
+        // Log the interaction
+        logAIInteraction(history[history.length - 1].content, response);
+
         // Remove a mensagem de "aviso de lentidão" se ela foi adicionada
         setMessages(prev => {
           const filtered = prev.filter(m => !m.content.includes('O modelo está demorando um pouco para carregar'));
@@ -118,6 +151,18 @@ const AIAssistant: React.FC = () => {
       await loginWithGoogle();
     } catch (err) {
       setError('Erro ao realizar login com Google.');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleMicrosoftLogin = async () => {
+    setIsLoading(true);
+    setError(null);
+    try {
+      await loginWithMicrosoft();
+    } catch (err) {
+      setError('Erro ao realizar login corporativo (Office 365).');
     } finally {
       setIsLoading(false);
     }
@@ -207,100 +252,10 @@ const AIAssistant: React.FC = () => {
               </div>
             </div>
 
-            {/* Messages or Auth */}
+            {/* Chat Content (Bypassing Auth requirement for now) */}
             {!isAuthReady ? (
               <div className="flex-1 flex items-center justify-center">
                 <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
-              </div>
-            ) : !aiUser ? (
-              <div className={`flex-1 p-6 flex flex-col justify-center space-y-6 ${darkMode ? 'bg-slate-900' : 'bg-gray-50'}`}>
-                <div className="text-center">
-                  <div className="inline-flex p-4 rounded-3xl bg-blue-500/10 text-blue-500 mb-4">
-                    <Shield className="w-10 h-10" />
-                  </div>
-                  <h4 className="text-xl font-black tracking-tight">Acesso ao NatuAssist</h4>
-                  <p className="text-sm text-slate-500 mt-2">Identifique-se com sua conta Google para liberar a IA de Auditoria.</p>
-                </div>
-
-                <div className="space-y-4">
-                  {error && (
-                    <div className="p-3 rounded-xl bg-red-500/10 text-red-500 text-[10px] font-bold flex items-center gap-2">
-                      <AlertCircle className="w-4 h-4" />
-                      {error}
-                    </div>
-                  )}
-
-                  <button
-                    onClick={handleGoogleLogin}
-                    disabled={isLoading}
-                    className="w-full flex items-center justify-center gap-3 py-4 bg-white text-slate-700 border border-slate-200 rounded-2xl font-bold text-sm shadow-sm hover:bg-slate-50 transition-all active:scale-95 disabled:opacity-50"
-                  >
-                    <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" className="w-5 h-5" alt="Google" />
-                    Entrar com Google
-                  </button>
-                  
-                  <p className="text-[10px] text-center text-slate-400 px-4">
-                    Ao entrar, você concorda com nossas políticas de segurança e auditoria interna.
-                  </p>
-                </div>
-              </div>
-            ) : !aiUser.matricula ? (
-              <div className={`flex-1 p-6 flex flex-col justify-center space-y-6 ${darkMode ? 'bg-slate-900' : 'bg-gray-50'}`}>
-                <div className="text-center">
-                  <div className="inline-flex p-4 rounded-3xl bg-green-500/10 text-green-500 mb-4">
-                    <UserCheck className="w-10 h-10" />
-                  </div>
-                  <h4 className="text-xl font-black tracking-tight">Quase lá, {aiUser.nome.split(' ')[0]}!</h4>
-                  <p className="text-sm text-slate-500 mt-2">Para finalizar seu acesso, informe sua matrícula funcional SAP.</p>
-                </div>
-
-                <div className="space-y-4">
-                  {error && (
-                    <div className="p-3 rounded-xl bg-red-500/10 text-red-500 text-[10px] font-bold flex items-center gap-2">
-                      <AlertCircle className="w-4 h-4" />
-                      {error}
-                    </div>
-                  )}
-
-                  <div>
-                    <label className="text-[10px] font-black uppercase tracking-widest text-slate-500 mb-1 block ml-1">Matrícula SAP</label>
-                    <input 
-                      type="text"
-                      value={matriculaInput}
-                      onChange={e => setMatriculaInput(e.target.value)}
-                      className={`w-full p-4 rounded-2xl text-sm border outline-none transition-all ${darkMode ? 'bg-slate-800 border-slate-700 text-white focus:border-blue-500' : 'bg-white border-gray-200 focus:border-blue-500'}`}
-                      placeholder="Ex: 123456"
-                    />
-                  </div>
-
-                  <div className="flex items-start gap-2 pt-2">
-                    <input 
-                      type="checkbox"
-                      id="terms"
-                      checked={acceptedTerms}
-                      onChange={e => setAcceptedTerms(e.target.checked)}
-                      className="mt-1"
-                    />
-                    <label htmlFor="terms" className="text-[10px] text-slate-500 leading-tight">
-                      Confirmo que sou auditor autorizado e concordo com os <Link to="/ai-terms" className="text-blue-500 hover:underline" onClick={() => setIsOpen(false)}>Termos de Serviço</Link>.
-                    </label>
-                  </div>
-
-                  <button
-                    onClick={handleCompleteRegistration}
-                    disabled={isLoading}
-                    className="w-full py-4 bg-blue-600 text-white rounded-2xl font-black text-sm shadow-lg shadow-blue-600/20 hover:bg-blue-700 transition-all active:scale-95 disabled:opacity-50"
-                  >
-                    {isLoading ? 'Salvando...' : 'Concluir Cadastro'}
-                  </button>
-                  
-                  <button
-                    onClick={handleLogout}
-                    className="w-full text-[10px] font-black uppercase tracking-widest text-slate-400 hover:text-red-500 transition-colors"
-                  >
-                    Usar outra conta
-                  </button>
-                </div>
               </div>
             ) : (
               <>
@@ -308,7 +263,7 @@ const AIAssistant: React.FC = () => {
                 <div className={`flex-1 overflow-y-auto p-4 space-y-4 ${darkMode ? 'bg-slate-900/50' : 'bg-gray-50/50'}`}>
                   <div className="flex justify-center mb-2">
                     <span className="text-[10px] px-2 py-1 rounded-full bg-slate-500/10 text-slate-500 font-bold">
-                      Logado como: {aiUser.nome} ({aiUser.matricula})
+                      {aiUser ? `Logado como: ${aiUser.nome} (${aiUser.matricula || 'Pendente'})` : 'Modo de Acesso Livre (NatuAssist)'}
                     </span>
                   </div>
                   {messages.map((msg, i) => (

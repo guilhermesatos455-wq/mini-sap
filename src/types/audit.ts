@@ -14,7 +14,7 @@ export interface TaxCompliance {
 }
 
 export interface Divergencia {
-  id: number;
+  id: number | string;
   material: string;
   descricao: string;
   tipoMaterial?: string;
@@ -54,7 +54,35 @@ export interface Divergencia {
   taxCompliance?: TaxCompliance;
   suggestedStatus?: string;
   suggestedComment?: string;
+  suggestedCause?: string;
+  suggestedTCodes?: string[];
+  suggestedTCodeAction?: string;
+  suggestedAction?: string;
+  appliedRecipes?: string[]; // IDs das receitas que foram disparadas para este item
+  aprovadoPor?: { nome: string; email: string; data: string } | null;
+  rejeitadoPor?: { nome: string; email: string; data: string; motivo: string } | null;
+  auditLogs?: { timestamp: string; user: string; action: string; prevStatus?: string; currentStatus?: string }[];
   _search: string;
+}
+
+export interface AuditRule {
+  id: string;
+  field: keyof Divergencia | string;
+  operator: '>' | '<' | '==' | '!=' | 'contains' | 'in' | 'matches';
+  value: any;
+  logicalOperator?: 'AND' | 'OR';
+}
+
+export interface AuditRecipe {
+  id: string;
+  name: string;
+  description: string;
+  rules: AuditRule[];
+  action: {
+    type: 'highlight' | 'status' | 'comment' | 'sap_tcode';
+    payload: string; // Cor hex, status name, texto do comentário ou T-Code
+  };
+  active: boolean;
 }
 
 export interface NotaNaoLancada {
@@ -104,10 +132,24 @@ export interface ShowColunas {
   valorTotalComFrete: boolean;
 }
 
+export type MovementCategory = 
+  | 'PRODUCTION_PURCHASE' 
+  | 'RETURN_ENTRY' 
+  | 'ADJUSTMENT_ENTRY' 
+  | 'ADJUSTMENT_EXIT' 
+  | 'OTHER_EXIT' 
+  | 'BONIFICATION' 
+  | 'SALE' 
+  | 'LOSS' 
+  | 'REQUISITION'
+  | 'INITIAL_STOCK'
+  | 'FINAL_STOCK';
+
 export interface SAPMovementType {
   code: string;
   description: string;
   direction: 'Entrada' | 'Saída' | 'Transferência';
+  category?: MovementCategory;
   active: boolean;
 }
 
@@ -123,4 +165,24 @@ export interface MaterialMovement {
   batch?: string;
   user: string;
   docNumber: string;
+}
+
+export interface StockPosition {
+  material: string;
+  description: string;
+  plant: string;
+  quantity: number;
+}
+
+export interface MovementColumnMapping {
+  movementType: number;
+  material: number;
+  description: number;
+  batch: number;
+  quantity: number;
+  storageLocation: number;
+  date: number;
+  docNumber?: number;
+  plant?: number;
+  user?: number;
 }

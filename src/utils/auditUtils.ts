@@ -1,4 +1,71 @@
-import { Divergencia, TaxCompliance } from '../types/audit';
+import { Divergencia, TaxCompliance, AuditRecipe, AuditRule } from '../types/audit';
+import { safeLocalStorageSet, setLargeData } from './storageUtils';
+
+export const suggestTCodes = (item: Divergencia): { codes: string[], action: string } => {
+  const codes: string[] = [];
+  let action = '';
+
+  const isPreco = Math.abs(item.variacaoPerc) > 5;
+  const isCustoPadraoZero = item.custoPadrao === 0;
+  const isCfopDevolucao = item.cfop.startsWith('120') || item.cfop.startsWith('220') || item.cfop.startsWith('520') || item.cfop.startsWith('620');
+  
+  if (isCustoPadraoZero) {
+    codes.push('MM02', 'MR21');
+    action = 'Atualizar Custo Padrão ou Visão de Contabilidade do Material';
+  } else if (isPreco) {
+    codes.push('ME22N', 'MIRO');
+    action = 'Verificar Pedido de Compra ou Estornar/Corrigir Fatura';
+  } else if (isCfopDevolucao) {
+    codes.push('MIGO', 'J1B1N');
+    action = 'Verificar Movimentação de Devolução e Nota Fiscal de Saída';
+  } else {
+    codes.push('MIR4', 'MB51');
+    action = 'Exibir Documento de Faturamento e Listagem de Movimentos';
+  }
+
+  return { codes, action };
+};
+
+export const executeAuditRecipes = (item: Divergencia, recipes: AuditRecipe[]): Divergencia => {
+  let updatedItem = { ...item };
+  const appliedRecipes: string[] = [];
+
+  recipes.filter(r => r.active).forEach(recipe => {
+    const isTriggered = recipe.rules.every(rule => {
+      const fieldValue = (updatedItem as any)[rule.field];
+      
+      switch (rule.operator) {
+        case '>': return Number(fieldValue) > Number(rule.value);
+        case '<': return Number(fieldValue) < Number(rule.value);
+        case '==': return String(fieldValue) === String(rule.value);
+        case '!=': return String(fieldValue) !== String(rule.value);
+        case 'contains': return String(fieldValue).toLowerCase().includes(String(rule.value).toLowerCase());
+        case 'matches': return new RegExp(String(rule.value)).test(String(fieldValue));
+        case 'in': return Array.isArray(rule.value) && rule.value.includes(fieldValue);
+        default: return false;
+      }
+    });
+
+    if (isTriggered) {
+      appliedRecipes.push(recipe.id);
+      switch (recipe.action.type) {
+        case 'status':
+          updatedItem.status = recipe.action.payload;
+          break;
+        case 'comment':
+          updatedItem.comentarios = (updatedItem.comentarios ? updatedItem.comentarios + '\n' : '') + '[REGRA]: ' + recipe.action.payload;
+          break;
+        case 'sap_tcode':
+          if (!updatedItem.suggestedTCodes) updatedItem.suggestedTCodes = [];
+          updatedItem.suggestedTCodes.push(recipe.action.payload);
+          break;
+      }
+    }
+  });
+
+  updatedItem.appliedRecipes = appliedRecipes;
+  return updatedItem;
+};
 
 export const validateTaxCompliance = (item: Divergencia, taxMatrix: Record<string, number>): TaxCompliance | undefined => {
   if (!item.impostos?.st || !item.precoEfetivo || !item.quantidade) return undefined;
@@ -48,7 +115,8 @@ export const calculateItemImpact = (
   item: Divergencia, 
   taxMatrix?: Record<string, number>,
   decisionHistory?: Record<string, string>,
-  justificationBase?: Record<string, string>
+  justificationBase?: Record<string, string>,
+  recipes?: AuditRecipe[]
 ): Divergencia => {
   const preco = item.precoEfetivo;
   const custo = item.custoPadrao;
@@ -78,6 +146,8 @@ export const calculateItemImpact = (
     totalImpostosPerc = (totalImpostos / totalValor) * 100;
   }
   
+  const tCodeRec = suggestTCodes(item);
+
   let updatedItem: Divergencia = {
     ...item,
     impactoFinanceiro,
@@ -88,7 +158,9 @@ export const calculateItemImpact = (
     cofinsEfetivoPerc,
     stEfetivoPerc,
     totalImpostosPerc,
-    tipo
+    tipo,
+    suggestedTCodes: tCodeRec.codes,
+    suggestedTCodeAction: tCodeRec.action
   };
 
   if (taxMatrix) {
@@ -97,6 +169,10 @@ export const calculateItemImpact = (
 
   if (decisionHistory && justificationBase) {
     updatedItem = applyIntelligence(updatedItem, decisionHistory, justificationBase);
+  }
+
+  if (recipes && recipes.length > 0) {
+    updatedItem = executeAuditRecipes(updatedItem, recipes);
   }
   
   return updatedItem;
@@ -126,7 +202,8 @@ export const mergeItemData = (
   newData: Partial<Divergencia>,
   taxMatrix?: Record<string, number>,
   decisionHistory?: Record<string, string>,
-  justificationBase?: Record<string, string>
+  justificationBase?: Record<string, string>,
+  recipes?: AuditRecipe[]
 ): Divergencia => {
   let mergedData = { ...newData };
   if (newData.impostos && oldItem.impostos) {
@@ -137,17 +214,17 @@ export const mergeItemData = (
   
   // Recalculate if price, cost, quantity or taxes changed
   if ('precoEfetivo' in newData || 'custoPadrao' in newData || 'quantidade' in newData || 'impostos' in newData) {
-    newItem = calculateItemImpact(newItem, taxMatrix, decisionHistory, justificationBase);
+    newItem = calculateItemImpact(newItem, taxMatrix, decisionHistory, justificationBase, recipes);
   }
   
   return newItem;
 };
 
-export const persistComment = (item: Divergencia) => {
+export const persistComment = async (item: Divergencia): Promise<void> => {
   const commentKey = `miniSap_comment_${item.material}_${item.numeroNF}_${item.data}`;
-  localStorage.setItem(commentKey, JSON.stringify({
+  await setLargeData(commentKey, {
     comentarios: item.comentarios,
     status: item.status,
     updatedAt: new Date().toISOString()
-  }));
+  });
 };

@@ -1,5 +1,7 @@
 import { useState, useRef, useCallback } from 'react';
 import Cookies from 'js-cookie';
+import { applyAuditRecipes, suggestRootCause } from '../utils/auditRuleEngine';
+import { safeLocalStorageGet, getLargeData } from '../utils/storageUtils';
 
 interface WorkerOptions {
   tolerancia: number;
@@ -8,6 +10,9 @@ interface WorkerOptions {
   dataFim: string;
   colunaData: string;
   mapColunas: any;
+  recipes?: any[];
+  decisionHistory?: Record<string, string>;
+  justificationBase?: Record<string, string>;
 }
 
 export const useAuditWorker = (options: WorkerOptions) => {
@@ -57,7 +62,7 @@ export const useAuditWorker = (options: WorkerOptions) => {
       onError(new Error(errorMsg));
     };
 
-    workerRef.current.onmessage = (e) => {
+    workerRef.current.onmessage = async (e) => {
       const { type, message, percent, current, total, resultado: res, fileName } = e.data;
 
       if (type === 'status') {
@@ -80,30 +85,57 @@ export const useAuditWorker = (options: WorkerOptions) => {
       } else if (type === 'done') {
         setProgressPercent(100);
         
-        // Merge comments from localStorage
-        const mergedDivergencias = res.divergencias.map((d: any) => {
+        // Multi-stage processing: 
+        // 1. Merge comments (Async)
+        // 2. Apply business rules (Recipes)
+        // 3. Simple root cause detection
+
+        const recipesInUse = options.recipes || [];
+
+        const processedDivergencias = await Promise.all(res.divergencias.map(async (d: any) => {
+          let item = { ...d };
+          
+          // Comment merge from local persistent storage (IndexedDB)
           const commentKey = `miniSap_comment_${d.material}_${d.numeroNF}_${d.data}`;
-          const saved = localStorage.getItem(commentKey);
+          const saved = await getLargeData<any>(commentKey, null);
           if (saved) {
-            const parsed = JSON.parse(saved);
-            return { ...d, comentarios: parsed.comentarios, status: parsed.status || d.status };
+            item = { ...item, comentarios: saved.comentarios, status: saved.status || item.status };
           }
-          return d;
+
+          // Simple AI Suggestion (Root Cause)
+          const suggestion = suggestRootCause(item, options.decisionHistory, options.justificationBase);
+          if (suggestion) {
+            item.suggestedCause = suggestion.cause;
+          }
+          
+          return item;
+        }));
+
+        // Apply Custom Recipes to the result set if any active
+        let finalizedDivergencias = applyAuditRecipes(processedDivergencias, recipesInUse);
+        
+        // Prioritization logic: Items with AI suggestions first, then by impact
+        finalizedDivergencias = finalizedDivergencias.sort((a: any, b: any) => {
+          // 1. Suggested cause priority
+          if (a.suggestedCause && !b.suggestedCause) return -1;
+          if (!a.suggestedCause && b.suggestedCause) return 1;
+          
+          // 2. Financial impact priority (absolute value)
+          return Math.abs(b.impactoFinanceiro) - Math.abs(a.impactoFinanceiro);
         });
         
-        const mergedTodos = res.todosOsItens?.map((d: any) => {
+        const mergedTodos = await Promise.all((res.todosOsItens || []).map(async (d: any) => {
           const commentKey = `miniSap_comment_${d.material}_${d.numeroNF}_${d.data}`;
-          const saved = localStorage.getItem(commentKey);
+          const saved = await getLargeData<any>(commentKey, null);
           if (saved) {
-            const parsed = JSON.parse(saved);
-            return { ...d, comentarios: parsed.comentarios, status: parsed.status || d.status };
+            return { ...d, comentarios: saved.comentarios, status: saved.status || d.status };
           }
           return d;
-        });
+        }));
 
         const finalRes = { 
           ...res, 
-          divergencias: mergedDivergencias, 
+          divergencias: finalizedDivergencias, 
           todosOsItens: mergedTodos 
         };
 

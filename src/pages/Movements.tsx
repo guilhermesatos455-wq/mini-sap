@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { 
   Box, 
   ArrowUpRight, 
@@ -15,10 +15,16 @@ import {
   Calendar,
   BarChart3,
   Table as TableIcon,
-  Settings
+  Settings,
+  ChevronLeft,
+  ChevronRight,
+  ChevronsLeft,
+  ChevronsRight,
+  MousePointer2
 } from 'lucide-react';
 import { useAudit } from '../context/AuditContext';
 import { motion, AnimatePresence } from 'framer-motion';
+import { safeLocalStorageSet } from '../utils/storageUtils';
 import { 
   BarChart, 
   Bar, 
@@ -38,15 +44,110 @@ const MovementsPage: React.FC = () => {
     movementTypes, 
     setMovementTypes, 
     movements, 
-    setMovements,
-    addToast 
+    addToast,
+    movementFiles,
+    setMovementFiles,
+    initialStockFiles,
+    setInitialStockFiles,
+    finalStockFiles,
+    setFinalStockFiles,
+    initialStockPositions,
+    finalStockPositions,
+    selectedPlant,
+    setSelectedPlant,
+    movementColumnMapping,
+    setMovementColumnMapping,
+    isProcessingMovements,
+    movementProcessingStatus,
+    movementProgressPercent,
+    processarMovimentacoes
   } = useAudit();
 
-  const [activeTab, setActiveTab] = useState<'list' | 'types' | 'analytics'>('list');
+  const [activeTab, setActiveTab] = useState<'list' | 'types' | 'analytics' | 'upload' | 'reconciliation'>('list');
   const [searchTerm, setSearchTerm] = useState('');
   const [editingType, setEditingType] = useState<string | null>(null);
   const [newType, setNewType] = useState<Partial<SAPMovementType>>({ direction: 'Entrada', active: true });
   const [showAddType, setShowAddType] = useState(false);
+  const [showMappingConfig, setShowMappingConfig] = useState(false);
+
+  // Pagination State
+  const [currentPage, setCurrentPage] = useState(1);
+  const [currentPageRecon, setCurrentPageRecon] = useState(1);
+  const [rowsPerPage] = useState(50);
+
+  // Drag to Scroll Hook
+  const listTableRef = useRef<HTMLDivElement>(null);
+  const reconciliationTableRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const setupDragScroll = (ref: React.RefObject<HTMLDivElement>) => {
+      const el = ref.current;
+      if (!el) return;
+
+      let isDown = false;
+      let startX: number;
+      let startY: number;
+      let scrollLeft: number;
+      let scrollTop: number;
+
+      const onMouseDown = (e: MouseEvent) => {
+        // Only trigger if clicking directly on table container or cells, not interactive elements
+        const target = e.target as HTMLElement;
+        if (['BUTTON', 'INPUT', 'SELECT', 'A'].includes(target.tagName)) return;
+        
+        isDown = true;
+        el.style.cursor = 'grabbing';
+        el.style.userSelect = 'none';
+        startX = e.pageX - el.offsetLeft;
+        startY = e.pageY - el.offsetTop;
+        scrollLeft = el.scrollLeft;
+        scrollTop = el.scrollTop;
+      };
+
+      const onMouseLeave = () => {
+        isDown = false;
+        el.style.cursor = 'grab';
+        el.style.removeProperty('user-select');
+      };
+
+      const onMouseUp = () => {
+        isDown = false;
+        el.style.cursor = 'grab';
+        el.style.removeProperty('user-select');
+      };
+
+      const onMouseMove = (e: MouseEvent) => {
+        if (!isDown) return;
+        e.preventDefault();
+        const x = e.pageX - el.offsetLeft;
+        const y = e.pageY - el.offsetTop;
+        const walkX = (x - startX) * 1.5;
+        const walkY = (y - startY) * 1.5;
+        el.scrollLeft = scrollLeft - walkX;
+        el.scrollTop = scrollTop - walkY;
+      };
+
+      el.addEventListener('mousedown', onMouseDown);
+      el.addEventListener('mouseleave', onMouseLeave);
+      el.addEventListener('mouseup', onMouseUp);
+      el.addEventListener('mousemove', onMouseMove);
+
+      return () => {
+        el.removeEventListener('mousedown', onMouseDown);
+        el.removeEventListener('mouseleave', onMouseLeave);
+        el.removeEventListener('mouseup', onMouseUp);
+        el.removeEventListener('mousemove', onMouseMove);
+      };
+    };
+
+    const cleanupList = setupDragScroll(listTableRef);
+    const cleanupRecon = setupDragScroll(reconciliationTableRef);
+
+    return () => {
+      cleanupList?.();
+      cleanupRecon?.();
+    };
+  }, [activeTab]); // Re-setup when tabs change since refs might change visibility
 
   // Analytics Logic: Monthly Movement
   const monthlyData = useMemo(() => {
@@ -114,6 +215,106 @@ const MovementsPage: React.FC = () => {
     addToast('Tipo de movimentação removido!', 'info');
   };
 
+  const paginatedMovements = useMemo(() => {
+    const start = (currentPage - 1) * rowsPerPage;
+    return filteredMovements.slice(start, start + rowsPerPage);
+  }, [filteredMovements, currentPage, rowsPerPage]);
+
+  const totalPages = Math.ceil(filteredMovements.length / rowsPerPage);
+
+  const goToPage = (page: number) => {
+    setCurrentPage(Math.max(1, Math.min(page, totalPages)));
+  };
+
+  const handleSearchChange = (val: string) => {
+    setSearchTerm(val);
+    setCurrentPage(1); // Reset to first page on search
+    setCurrentPageRecon(1);
+  };
+
+  const reconciliationData = useMemo(() => {
+    const materials: Record<string, any> = {};
+    
+    const getBase = (m: any) => ({
+      material: m.material,
+      description: m.description,
+      initial: 0,
+      prod: 0, // G8
+      dev: 0, // H8
+      adjIn: 0, // I8
+      adjOut: 0, // K8
+      otherOut: 0, // L8
+      bonif: 0, // M8
+      sale: 0, // N8
+      loss: 0, // O8
+      req: 0, // P8
+      finalStockReal: 0 // S8
+    });
+
+    initialStockPositions.forEach(p => {
+      if (!materials[p.material]) materials[p.material] = getBase(p);
+      materials[p.material].initial = p.quantity;
+    });
+
+    finalStockPositions.forEach(p => {
+      if (!materials[p.material]) materials[p.material] = getBase(p);
+      materials[p.material].finalStockReal = p.quantity;
+    });
+
+    movements.forEach(m => {
+      if (!materials[m.material]) materials[m.material] = getBase(m);
+      
+      const type = movementTypes.find(t => t.code === m.movementType);
+      if (type) {
+        let category = type.category;
+
+        // Lógica Dinâmica para códigos específicos
+        if (['309', '325', '321'].includes(m.movementType)) {
+          category = m.quantity >= 0 ? 'ADJUSTMENT_ENTRY' : 'ADJUSTMENT_EXIT';
+        }
+
+        if (category) {
+          const qty = m.quantity;
+          switch (category) {
+            case 'INITIAL_STOCK': if (initialStockPositions.length === 0) materials[m.material].initial += qty; break;
+            case 'PRODUCTION_PURCHASE': materials[m.material].prod += qty; break;
+            case 'RETURN_ENTRY': materials[m.material].dev += qty; break;
+            case 'ADJUSTMENT_ENTRY': materials[m.material].adjIn += qty; break;
+            case 'ADJUSTMENT_EXIT': materials[m.material].adjOut += Math.abs(qty); break; // Always use absolute for subtraction later
+            case 'OTHER_EXIT': materials[m.material].otherOut += Math.abs(qty); break;
+            case 'BONIFICATION': materials[m.material].bonif += Math.abs(qty); break;
+            case 'SALE': materials[m.material].sale += Math.abs(qty); break;
+            case 'LOSS': materials[m.material].loss += Math.abs(qty); break;
+            case 'REQUISITION': materials[m.material].req += Math.abs(qty); break;
+            case 'FINAL_STOCK': if (finalStockPositions.length === 0) materials[m.material].finalStockReal += qty; break;
+          }
+        }
+      }
+    });
+
+    return Object.values(materials).map((m: any) => {
+      const totalIn = m.initial + m.prod + m.dev + m.adjIn; // J8
+      const totalOut = m.adjOut + m.otherOut + m.bonif + m.sale + m.loss + m.req; // Q8
+      const subtotal = totalIn - totalOut; // R8 (Assuming out is positive mag)
+      const difference = subtotal - m.finalStockReal; // T8
+      return { ...m, totalIn, totalOut, subtotal, difference };
+    }).filter((m: any) => 
+      m.material.toLowerCase().includes(searchTerm.toLowerCase()) || 
+      m.description.toLowerCase().includes(searchTerm.toLowerCase())
+    );
+  }, [movements, movementTypes, searchTerm, initialStockPositions, finalStockPositions]);
+
+  const paginatedReconciliation = useMemo(() => {
+    const start = (currentPageRecon - 1) * rowsPerPage;
+    return reconciliationData.slice(start, start + rowsPerPage);
+  }, [reconciliationData, currentPageRecon, rowsPerPage]);
+
+  const totalPagesRecon = Math.ceil(reconciliationData.length / rowsPerPage);
+
+  const goToPageRecon = (page: number) => {
+    setCurrentPageRecon(Math.max(1, Math.min(page, totalPagesRecon)));
+  };
+
   return (
     <div className="p-8 space-y-8 max-w-[1600px] mx-auto">
       {/* Header */}
@@ -145,7 +346,9 @@ const MovementsPage: React.FC = () => {
       {/* Tabs */}
       <div className="flex items-center gap-2 p-1 rounded-2xl bg-slate-100 dark:bg-slate-800/50 w-fit">
         {[
+          { id: 'upload', label: 'Upload MB51', icon: <Download className="w-4 h-4" /> },
           { id: 'list', label: 'Movimentos', icon: <TableIcon className="w-4 h-4" /> },
+          { id: 'reconciliation', label: 'Conciliação', icon: <BarChart3 className="w-4 h-4" /> },
           { id: 'analytics', label: 'Análise Mensal', icon: <BarChart3 className="w-4 h-4" /> },
           { id: 'types', label: 'Configuração de Tipos', icon: <Settings className="w-4 h-4" /> },
         ].map(tab => (
@@ -162,6 +365,257 @@ const MovementsPage: React.FC = () => {
 
       {/* Content */}
       <AnimatePresence mode="wait">
+        {activeTab === 'upload' && (
+          <motion.div
+            key="upload"
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -20 }}
+            className="space-y-8"
+          >
+            {/* Info Message */}
+            <div className={`p-6 rounded-3xl border-2 border-[#8DC63F]/20 ${darkMode ? 'bg-[#8DC63F]/5' : 'bg-[#8DC63F]/5'} flex items-start gap-4`}>
+              <div className="p-2 rounded-xl bg-[#8DC63F] text-white">
+                <Box className="w-5 h-5" />
+              </div>
+              <div className="space-y-1">
+                <p className={`text-sm font-bold ${darkMode ? 'text-white' : 'text-slate-900'}`}>
+                  Layout Padrão: Guilherme Souza
+                </p>
+                <p className={`text-xs font-medium ${darkMode ? 'text-slate-400' : 'text-slate-600'}`}>
+                  Por padrão, o programa utiliza o layout SAP de movimentação de estoque de Guilherme Souza (Colunas A-G). 
+                  Você pode personalizar o mapeamento das colunas caso sua planilha siga um padrão diferente.
+                </p>
+                <button 
+                  onClick={() => setShowMappingConfig(!showMappingConfig)}
+                  className="mt-2 flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-[#8DC63F] hover:text-[#78AF32] transition-all"
+                >
+                  <Settings className={`w-3 h-3 transition-transform ${showMappingConfig ? 'rotate-90' : ''}`} />
+                  {showMappingConfig ? 'Ocultar Personalização' : 'Personalizar Mapeamento de Coluna'}
+                </button>
+              </div>
+            </div>
+
+            {/* Custom Mapping UI */}
+            <AnimatePresence>
+              {showMappingConfig && (
+                <motion.div
+                  initial={{ height: 0, opacity: 0 }}
+                  animate={{ height: 'auto', opacity: 1 }}
+                  exit={{ height: 0, opacity: 0 }}
+                  className="overflow-hidden"
+                >
+                  <div className={`p-8 rounded-[32px] border ${darkMode ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-100 shadow-sm'} grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6`}>
+                    {[
+                      { key: 'movementType', label: 'Tipo Mov. (Ex: A=0)', icon: <ArrowUpRight className="w-3 h-3" /> },
+                      { key: 'material', label: 'Material (Ex: B=1)', icon: <Box className="w-3 h-3" /> },
+                      { key: 'description', label: 'Texto Breve (Ex: C=2)', icon: <Edit2 className="w-3 h-3" /> },
+                      { key: 'batch', label: 'Lote (Ex: D=3)', icon: <Box className="w-3 h-3" /> },
+                      { key: 'quantity', label: 'Quantidade (Ex: E=4)', icon: <Plus className="w-3 h-3" /> },
+                      { key: 'storageLocation', label: 'Depósito (Ex: F=5)', icon: <ArrowDownLeft className="w-3 h-3" /> },
+                      { key: 'date', label: 'Data Lanç. (Ex: G=6)', icon: <Calendar className="w-3 h-3" /> },
+                      { key: 'docNumber', label: 'Doc. Material', icon: <TableIcon className="w-3 h-3" /> },
+                    ].map((field) => (
+                      <div key={field.key} className="space-y-2">
+                        <label className={`flex items-center gap-2 text-[10px] font-black uppercase tracking-widest ${darkMode ? 'text-slate-500' : 'text-slate-400'}`}>
+                          {field.icon}
+                          {field.label}
+                        </label>
+                        <input 
+                          type="number"
+                          value={(movementColumnMapping as any)[field.key] ?? ''}
+                          onChange={(e) => {
+                            const val = e.target.value === '' ? -1 : parseInt(e.target.value);
+                            const updated = { ...movementColumnMapping, [field.key]: val };
+                            setMovementColumnMapping(updated);
+                            safeLocalStorageSet('miniSapMovementMapping', updated);
+                          }}
+                          className={`w-full px-4 py-2 rounded-xl border text-xs font-bold transition-all ${darkMode ? 'bg-slate-800 border-slate-700 text-white focus:border-[#8DC63F]' : 'bg-slate-50 border-slate-200 text-slate-900 focus:border-[#78AF32]'}`}
+                        />
+                      </div>
+                    ))}
+                    <div className="col-span-full flex justify-end">
+                      <button 
+                        onClick={() => {
+                          const def = { movementType: 0, material: 1, description: 2, batch: 3, quantity: 4, storageLocation: 5, date: 6 };
+                          setMovementColumnMapping(def);
+                          safeLocalStorageSet('miniSapMovementMapping', def);
+                        }}
+                        className={`text-[10px] font-black uppercase tracking-widest px-4 py-2 rounded-xl transition-all ${darkMode ? 'bg-slate-800 text-slate-400 hover:text-white' : 'bg-slate-100 text-slate-500 hover:text-slate-700'}`}
+                      >
+                        Resetar para Guilherme Souza
+                      </button>
+                    </div>
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+              {/* Plant Selection */}
+              <div className={`col-span-1 md:col-span-2 p-6 rounded-3xl border ${darkMode ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-100 shadow-sm'}`}>
+                <div className="flex items-center justify-between">
+                  <div className="space-y-1">
+                    <h3 className="text-sm font-black uppercase tracking-widest text-[#8DC63F]">Seleção de Centro (Obrigatório)</h3>
+                    <p className={`text-xs font-medium ${darkMode ? 'text-slate-400' : 'text-slate-500'}`}>Selecione o centro para filtrar os dados das planilhas de posição de estoque.</p>
+                  </div>
+                  <div className="flex p-1 rounded-xl bg-slate-100 dark:bg-slate-800">
+                    <button 
+                      onClick={() => setSelectedPlant('1001')}
+                      className={`px-4 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${selectedPlant === '1001' ? (darkMode ? 'bg-slate-700 text-[#8DC63F]' : 'bg-white text-[#78AF32] shadow-sm') : 'text-slate-500'}`}
+                    >
+                      1001 (LAB)
+                    </button>
+                    <button 
+                      onClick={() => setSelectedPlant('1005')}
+                      className={`px-4 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${selectedPlant === '1005' ? (darkMode ? 'bg-slate-700 text-[#8DC63F]' : 'bg-white text-[#78AF32] shadow-sm') : 'text-slate-500'}`}
+                    >
+                      1005 (LIFE)
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              {/* MB51 Movements */}
+              <div className={`p-8 rounded-[40px] border-4 border-dashed transition-all ${darkMode ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-100'} text-center`}>
+                <div className="max-w-md mx-auto space-y-4">
+                  <div className={`w-14 h-14 rounded-2xl mx-auto flex items-center justify-center ${darkMode ? 'bg-slate-800 text-[#8DC63F]' : 'bg-slate-50 text-[#78AF32]'}`}>
+                    <Download className="w-7 h-7" />
+                  </div>
+                  <div className="space-y-1">
+                    <h2 className="text-xl font-black tracking-tight">Movimentações MB51</h2>
+                    <p className={`text-xs font-medium ${darkMode ? 'text-slate-400' : 'text-slate-500'}`}>Arquivos MB51 (.xlsx)</p>
+                  </div>
+                  
+                  <div className="relative">
+                    <input 
+                      type="file" 
+                      multiple
+                      accept=".xlsx, .xls"
+                      onChange={(e) => {
+                        if (e.target.files) {
+                          setMovementFiles(Array.from(e.target.files));
+                        }
+                      }}
+                      className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                    />
+                    <div className={`px-6 py-3 rounded-2xl border-2 border-dashed ${darkMode ? 'bg-slate-800 border-slate-700' : 'bg-slate-50 border-slate-100'} text-xs font-bold`}>
+                      {movementFiles.length > 0 ? `${movementFiles.length} arquivos selecionados` : 'Clique para selecionar MB51'}
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Stock Positions */}
+              <div className="space-y-4">
+                {/* Initial Stock */}
+                <div className={`p-6 rounded-[30px] border-2 border-dashed transition-all ${darkMode ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-100'}`}>
+                  <div className="flex items-center gap-4">
+                    <div className="flex-1 space-y-1">
+                      <h3 className="text-xs font-black uppercase tracking-widest">Estoque Inicial (E8)</h3>
+                      <p className={`text-[10px] font-medium ${darkMode ? 'text-slate-500' : 'text-slate-400'}`}>Planilha "ESTOQUE INICIAL-Anterior"</p>
+                    </div>
+                    <div className="relative">
+                      <input 
+                        type="file" multiple accept=".xlsx, .xls"
+                        onChange={(e) => {
+                          if (e.target.files) {
+                            setInitialStockFiles(Array.from(e.target.files));
+                          }
+                        }}
+                        className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                      />
+                      <div className={`px-4 py-2 rounded-xl border ${initialStockFiles.length > 0 ? 'bg-[#8DC63F]/10 border-[#8DC63F] text-[#8DC63F]' : 'bg-slate-100 dark:bg-slate-800 border-transparent text-slate-500'} text-[10px] font-black uppercase`}>
+                        {initialStockFiles.length > 0 ? 'OK' : 'Selecionar'}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Final Stock */}
+                <div className={`p-6 rounded-[30px] border-2 border-dashed transition-all ${darkMode ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-100'}`}>
+                  <div className="flex items-center gap-4">
+                    <div className="flex-1 space-y-1">
+                      <h3 className="text-xs font-black uppercase tracking-widest">Estoque Final (S8)</h3>
+                      <p className={`text-[10px] font-medium ${darkMode ? 'text-slate-500' : 'text-slate-400'}`}>Planilha "ESTOQUE FINAL-MES ATUAL"</p>
+                    </div>
+                    <div className="relative">
+                      <input 
+                        type="file" multiple accept=".xlsx, .xls"
+                        onChange={(e) => {
+                          if (e.target.files) {
+                            setFinalStockFiles(Array.from(e.target.files));
+                          }
+                        }}
+                        className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                      />
+                      <div className={`px-4 py-2 rounded-xl border ${finalStockFiles.length > 0 ? 'bg-[#8DC63F]/10 border-[#8DC63F] text-[#8DC63F]' : 'bg-slate-100 dark:bg-slate-800 border-transparent text-slate-500'} text-[10px] font-black uppercase`}>
+                        {finalStockFiles.length > 0 ? 'OK' : 'Selecionar'}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex justify-center pt-4">
+              <button 
+                onClick={processarMovimentacoes}
+                disabled={isProcessingMovements || (movementFiles.length === 0 && initialStockFiles.length === 0 && finalStockFiles.length === 0)}
+                className={`flex items-center gap-3 px-10 py-4 rounded-2xl bg-[#8DC63F] text-white text-sm font-black uppercase tracking-widest hover:bg-[#78AF32] transition-all shadow-xl shadow-[#8DC63F]/20 disabled:opacity-50 disabled:cursor-not-allowed`}
+              >
+                {isProcessingMovements ? (
+                  <>
+                    <RefreshCcw className="w-5 h-5 animate-spin" />
+                    Processando... {movementProgressPercent}%
+                  </>
+                ) : (
+                  <>
+                    <Download className="w-5 h-5" />
+                    Iniciar Processamento Consolidado
+                  </>
+                )}
+              </button>
+            </div>
+
+            {isProcessingMovements && (
+              <div className="max-w-md mx-auto space-y-3 font-black">
+                <div className="w-full h-2 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
+                  <motion.div 
+                    className="h-full bg-[#8DC63F]"
+                    initial={{ width: 0 }}
+                    animate={{ width: `${movementProgressPercent}%` }}
+                  />
+                </div>
+                <p className={`text-[10px] font-black uppercase tracking-widest text-center ${darkMode ? 'text-slate-500' : 'text-slate-400'}`}>
+                  {movementProcessingStatus}
+                </p>
+              </div>
+            )}
+            
+            <div className={`p-8 rounded-3xl border ${darkMode ? 'bg-slate-900 border-slate-800' : 'bg-white border-gray-100 shadow-sm'}`}>
+              <h3 className="text-lg font-black mb-4 flex items-center gap-2">
+                <Box className="w-5 h-5 text-[#8DC63F]" />
+                Instruções de Importação
+              </h3>
+              <ul className={`text-xs space-y-3 font-medium ${darkMode ? 'text-slate-400' : 'text-slate-500'}`}>
+                <li className="flex gap-2">
+                  <div className="w-1.5 h-1.5 rounded-full bg-[#8DC63F] mt-1.5 shrink-0" />
+                  O arquivo deve ser extraído diretamente do SAP através da transação MB51.
+                </li>
+                <li className="flex gap-2">
+                  <div className="w-1.5 h-1.5 rounded-full bg-[#8DC63F] mt-1.5 shrink-0" />
+                  Não altere os nomes das colunas originais para garantir o mapeamento automático.
+                </li>
+                <li className="flex gap-2">
+                  <div className="w-1.5 h-1.5 rounded-full bg-[#8DC63F] mt-1.5 shrink-0" />
+                  Você pode subir múltiplos arquivos de períodos diferentes ao mesmo tempo.
+                </li>
+              </ul>
+            </div>
+          </motion.div>
+        )}
+
         {activeTab === 'list' && (
           <motion.div
             key="list"
@@ -178,23 +632,68 @@ const MovementsPage: React.FC = () => {
                   type="text"
                   placeholder="Pesquisar por material, descrição ou documento..."
                   value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
+                  onChange={(e) => handleSearchChange(e.target.value)}
                   className={`w-full pl-12 pr-4 py-3 rounded-2xl text-sm font-medium outline-none border transition-all ${darkMode ? 'bg-slate-950 border-slate-800 text-slate-200 focus:border-[#8DC63F]' : 'bg-slate-50 border-slate-100 text-slate-700 focus:border-[#8DC63F]'}`}
                 />
               </div>
               <div className="flex gap-3">
-                <button className={`px-4 py-3 rounded-2xl border flex items-center gap-2 text-xs font-bold ${darkMode ? 'bg-slate-950 border-slate-800 text-slate-400' : 'bg-slate-50 border-slate-100 text-slate-500'}`}>
-                  <Calendar className="w-4 h-4" /> Período
-                </button>
-                <button className={`px-4 py-3 rounded-2xl border flex items-center gap-2 text-xs font-bold ${darkMode ? 'bg-slate-950 border-slate-800 text-slate-400' : 'bg-slate-50 border-slate-100 text-slate-500'}`}>
-                  <Filter className="w-4 h-4" /> Filtros
-                </button>
+                <div className={`px-4 py-3 rounded-2xl border flex items-center gap-2 text-[10px] font-black uppercase tracking-widest ${darkMode ? 'bg-slate-950 border-slate-800 text-slate-400' : 'bg-slate-50 border-slate-100 text-slate-500'}`}>
+                  <MousePointer2 className="w-4 h-4" /> Arraste para rolar
+                </div>
               </div>
             </div>
 
+            {/* Pagination Info */}
+            <div className="flex items-center justify-between">
+              <p className={`text-[10px] font-black uppercase tracking-widest ${darkMode ? 'text-slate-500' : 'text-slate-400'}`}>
+                Exibindo {paginatedMovements.length} de {filteredMovements.length} registros
+              </p>
+              
+              {totalPages > 1 && (
+                <div className="flex items-center gap-1">
+                  <button 
+                    onClick={() => goToPage(1)}
+                    disabled={currentPage === 1}
+                    className={`p-2 rounded-lg transition-all ${currentPage === 1 ? 'opacity-30 cursor-not-allowed' : 'hover:bg-slate-100 dark:hover:bg-slate-800'}`}
+                  >
+                    <ChevronsLeft className="w-4 h-4" />
+                  </button>
+                  <button 
+                    onClick={() => goToPage(currentPage - 1)}
+                    disabled={currentPage === 1}
+                    className={`p-2 rounded-lg transition-all ${currentPage === 1 ? 'opacity-30 cursor-not-allowed' : 'hover:bg-slate-100 dark:hover:bg-slate-800'}`}
+                  >
+                    <ChevronLeft className="w-4 h-4" />
+                  </button>
+                  
+                  <div className="flex items-center px-4 py-1.5 rounded-xl bg-slate-100 dark:bg-slate-800 text-[10px] font-black">
+                    PÁGINA {currentPage} DE {totalPages}
+                  </div>
+
+                  <button 
+                    onClick={() => goToPage(currentPage + 1)}
+                    disabled={currentPage === totalPages}
+                    className={`p-2 rounded-lg transition-all ${currentPage === totalPages ? 'opacity-30 cursor-not-allowed' : 'hover:bg-slate-100 dark:hover:bg-slate-800'}`}
+                  >
+                    <ChevronRight className="w-4 h-4" />
+                  </button>
+                  <button 
+                    onClick={() => goToPage(totalPages)}
+                    disabled={currentPage === totalPages}
+                    className={`p-2 rounded-lg transition-all ${currentPage === totalPages ? 'opacity-30 cursor-not-allowed' : 'hover:bg-slate-100 dark:hover:bg-slate-800'}`}
+                  >
+                    <ChevronsRight className="w-4 h-4" />
+                  </button>
+                </div>
+              )}
+            </div>
+
             {/* Table */}
-            <div className={`rounded-3xl border overflow-hidden ${darkMode ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-100 shadow-sm'}`}>
-              <div className="overflow-x-auto">
+            <div 
+              ref={listTableRef}
+              className={`rounded-3xl border overflow-hidden cursor-grab active:cursor-grabbing ${darkMode ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-100 shadow-sm'}`}
+            >
+              <div className="overflow-x-auto select-none pointer-events-auto">
                 <table className="w-full text-left border-collapse">
                   <thead>
                     <tr className={darkMode ? 'bg-slate-800/50' : 'bg-slate-50/50'}>
@@ -208,8 +707,8 @@ const MovementsPage: React.FC = () => {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-                    {filteredMovements.length > 0 ? (
-                      filteredMovements.map(m => {
+                    {paginatedMovements.length > 0 ? (
+                      paginatedMovements.map(m => {
                         const type = movementTypes.find(t => t.code === m.movementType);
                         return (
                           <tr key={m.id} className={`group transition-colors ${darkMode ? 'hover:bg-slate-800/50' : 'hover:bg-slate-50/50'}`}>
@@ -255,6 +754,140 @@ const MovementsPage: React.FC = () => {
                         </td>
                       </tr>
                     )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </motion.div>
+        )}
+
+        {activeTab === 'reconciliation' && (
+          <motion.div
+            key="reconciliation"
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -20 }}
+            className="space-y-6"
+          >
+            <div className={`p-6 rounded-3xl border ${darkMode ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-100 shadow-sm'} flex flex-col md:flex-row gap-4`}>
+              <div className="relative flex-1">
+                <Search className={`absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 ${darkMode ? 'text-slate-500' : 'text-slate-400'}`} />
+                <input 
+                  type="text"
+                  placeholder="Filtrar por material ou descrição..."
+                  value={searchTerm}
+                  onChange={(e) => handleSearchChange(e.target.value)}
+                  className={`w-full pl-12 pr-4 py-3 rounded-2xl text-sm font-medium outline-none border transition-all ${darkMode ? 'bg-slate-950 border-slate-800 text-slate-200 focus:border-[#8DC63F]' : 'bg-slate-50 border-slate-100 text-slate-700 focus:border-[#8DC63F]'}`}
+                />
+              </div>
+              <div className={`px-4 py-3 rounded-2xl border flex items-center gap-2 text-xs font-bold ${darkMode ? 'bg-slate-950 border-slate-800 text-slate-400' : 'bg-slate-50 border-slate-100 text-slate-500'}`}>
+                <MousePointer2 className="w-4 h-4" /> Arraste para rolar
+              </div>
+              <div className={`px-4 py-3 rounded-2xl border flex items-center gap-2 text-xs font-bold ${darkMode ? 'bg-slate-950 border-slate-800 text-slate-400' : 'bg-slate-50 border-slate-100 text-slate-500'}`}>
+                <BarChart3 className="w-4 h-4" /> 
+                {reconciliationData.length} Materiais
+              </div>
+            </div>
+
+            {/* Pagination for Reconciliation */}
+            <div className="flex items-center justify-between">
+              <p className={`text-[10px] font-black uppercase tracking-widest ${darkMode ? 'text-slate-500' : 'text-slate-400'}`}>
+                Exibindo {paginatedReconciliation.length} de {reconciliationData.length} materiais
+              </p>
+              
+              {totalPagesRecon > 1 && (
+                <div className="flex items-center gap-1">
+                  <button 
+                    onClick={() => goToPageRecon(1)}
+                    disabled={currentPageRecon === 1}
+                    className={`p-2 rounded-lg transition-all ${currentPageRecon === 1 ? 'opacity-30 cursor-not-allowed' : 'hover:bg-slate-100 dark:hover:bg-slate-800'}`}
+                  >
+                    <ChevronsLeft className="w-4 h-4" />
+                  </button>
+                  <button 
+                    onClick={() => goToPageRecon(currentPageRecon - 1)}
+                    disabled={currentPageRecon === 1}
+                    className={`p-2 rounded-lg transition-all ${currentPageRecon === 1 ? 'opacity-30 cursor-not-allowed' : 'hover:bg-slate-100 dark:hover:bg-slate-800'}`}
+                  >
+                    <ChevronLeft className="w-4 h-4" />
+                  </button>
+                  
+                  <div className="flex items-center px-4 py-1.5 rounded-xl bg-slate-100 dark:bg-slate-800 text-[10px] font-black">
+                    PÁGINA {currentPageRecon} DE {totalPagesRecon}
+                  </div>
+
+                  <button 
+                    onClick={() => goToPageRecon(currentPageRecon + 1)}
+                    disabled={currentPageRecon === totalPagesRecon}
+                    className={`p-2 rounded-lg transition-all ${currentPageRecon === totalPagesRecon ? 'opacity-30 cursor-not-allowed' : 'hover:bg-slate-100 dark:hover:bg-slate-800'}`}
+                  >
+                    <ChevronRight className="w-4 h-4" />
+                  </button>
+                  <button 
+                    onClick={() => goToPageRecon(totalPagesRecon)}
+                    disabled={currentPageRecon === totalPagesRecon}
+                    className={`p-2 rounded-lg transition-all ${currentPageRecon === totalPagesRecon ? 'opacity-30 cursor-not-allowed' : 'hover:bg-slate-100 dark:hover:bg-slate-800'}`}
+                  >
+                    <ChevronsRight className="w-4 h-4" />
+                  </button>
+                </div>
+              )}
+            </div>
+
+            <div 
+              ref={reconciliationTableRef}
+              className={`rounded-3xl border overflow-hidden cursor-grab active:cursor-grabbing ${darkMode ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-100 shadow-sm'}`}
+            >
+              <div className="overflow-x-auto select-none">
+                <table className="w-full text-left border-collapse min-w-[1500px]">
+                  <thead>
+                    <tr className={darkMode ? 'bg-slate-800/50 text-slate-400' : 'bg-slate-50/50 text-slate-500'}>
+                      <th className="px-4 py-4 text-[9px] font-black uppercase tracking-widest sticky left-0 z-10 bg-inherit min-w-[200px]">Material</th>
+                      <th className="px-4 py-4 text-[9px] font-black uppercase tracking-widest text-center border-l bg-blue-500/5">Est. Inicial (E8)</th>
+                      <th className="px-4 py-4 text-[9px] font-black uppercase tracking-widest text-center bg-blue-500/5">Prod. (G8)</th>
+                      <th className="px-4 py-4 text-[9px] font-black uppercase tracking-widest text-center bg-blue-500/5">Dev. (H8)</th>
+                      <th className="px-4 py-4 text-[9px] font-black uppercase tracking-widest text-center bg-blue-500/5">Aju. Ent (I8)</th>
+                      <th className="px-4 py-4 text-[9px] font-black uppercase tracking-widest text-center bg-blue-500/10 font-bold border-r">Tot. Ent (J8)</th>
+                      <th className="px-4 py-4 text-[9px] font-black uppercase tracking-widest text-center bg-rose-500/5">Aju. Saí (K8)</th>
+                      <th className="px-4 py-4 text-[9px] font-black uppercase tracking-widest text-center bg-rose-500/5">Out. Saí (L8)</th>
+                      <th className="px-4 py-4 text-[9px] font-black uppercase tracking-widest text-center bg-rose-500/5">Bonif. (M8)</th>
+                      <th className="px-4 py-4 text-[9px] font-black uppercase tracking-widest text-center bg-rose-500/5">Venda (N8)</th>
+                      <th className="px-4 py-4 text-[9px] font-black uppercase tracking-widest text-center bg-rose-500/5">Perda (O8)</th>
+                      <th className="px-4 py-4 text-[9px] font-black uppercase tracking-widest text-center bg-rose-500/5">Req. (P8)</th>
+                      <th className="px-4 py-4 text-[9px] font-black uppercase tracking-widest text-center bg-rose-500/10 font-bold border-r">Tot. Saí (Q8)</th>
+                      <th className="px-4 py-4 text-[9px] font-black uppercase tracking-widest text-center bg-amber-500/10 font-bold">Subtotal (R8)</th>
+                      <th className="px-4 py-4 text-[9px] font-black uppercase tracking-widest text-center bg-emerald-500/10 font-bold">Est. Real (S8)</th>
+                      <th className="px-4 py-4 text-[9px] font-black uppercase tracking-widest text-center bg-red-500/10 font-bold">Diferença (T8)</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                    {paginatedReconciliation.map(m => (
+                      <tr key={m.material} className={`group transition-colors ${darkMode ? 'hover:bg-slate-800/20' : 'hover:bg-slate-50/50'}`}>
+                        <td className="px-4 py-4 sticky left-0 z-10 transition-colors bg-white dark:bg-slate-900 group-hover:bg-slate-50 dark:group-hover:bg-slate-800">
+                          <div className="flex flex-col">
+                            <span className="text-[11px] font-black">{m.material}</span>
+                            <span className="text-[9px] font-medium text-slate-400 truncate max-w-[150px]">{m.description}</span>
+                          </div>
+                        </td>
+                        <td className="px-4 py-4 text-center text-[11px] font-bold border-l">{m.initial.toLocaleString()}</td>
+                        <td className="px-4 py-4 text-center text-[11px] font-bold">{m.prod.toLocaleString()}</td>
+                        <td className="px-4 py-4 text-center text-[11px] font-bold">{m.dev.toLocaleString()}</td>
+                        <td className="px-4 py-4 text-center text-[11px] font-bold">{m.adjIn.toLocaleString()}</td>
+                        <td className="px-4 py-4 text-center text-[11px] font-black text-blue-500 bg-blue-500/5 border-r">{m.totalIn.toLocaleString()}</td>
+                        <td className="px-4 py-4 text-center text-[11px] font-bold text-rose-500">{m.adjOut.toLocaleString()}</td>
+                        <td className="px-4 py-4 text-center text-[11px] font-bold text-rose-500">{m.otherOut.toLocaleString()}</td>
+                        <td className="px-4 py-4 text-center text-[11px] font-bold text-rose-500">{m.bonif.toLocaleString()}</td>
+                        <td className="px-4 py-4 text-center text-[11px] font-bold text-rose-500">{m.sale.toLocaleString()}</td>
+                        <td className="px-4 py-4 text-center text-[11px] font-bold text-rose-500">{m.loss.toLocaleString()}</td>
+                        <td className="px-4 py-4 text-center text-[11px] font-bold text-rose-500">{m.req.toLocaleString()}</td>
+                        <td className="px-4 py-4 text-center text-[11px] font-black text-rose-600 bg-rose-500/10 border-r">{m.totalOut.toLocaleString()}</td>
+                        <td className="px-4 py-4 text-center text-[11px] font-black text-amber-600 bg-amber-500/5">{m.subtotal.toLocaleString()}</td>
+                        <td className="px-4 py-4 text-center text-[11px] font-black text-emerald-600 bg-emerald-500/5">{m.finalStockReal.toLocaleString()}</td>
+                        <td className={`px-4 py-4 text-center text-[11px] font-black ${Math.abs(m.difference) > 0.01 ? 'text-red-500 bg-red-500/10' : 'text-emerald-500 bg-emerald-500/10'}`}>
+                          {m.difference.toLocaleString()}
+                        </td>
+                      </tr>
+                    ))}
                   </tbody>
                 </table>
               </div>
@@ -443,6 +1076,27 @@ const MovementsPage: React.FC = () => {
                           <option value="Transferência">Transferência</option>
                         </select>
                       </div>
+                      <div className="space-y-1 col-span-2">
+                        <label className="text-[10px] font-black uppercase tracking-widest text-slate-500">Categoria de Conciliação</label>
+                        <select 
+                          value={newType.category || ''}
+                          onChange={e => setNewType({ ...newType, category: e.target.value as any })}
+                          className={`w-full px-3 py-2 rounded-xl text-xs font-bold outline-none border ${darkMode ? 'bg-slate-950 border-slate-800 text-white' : 'bg-white border-slate-200 text-slate-900'}`}
+                        >
+                          <option value="">Nenhuma</option>
+                          <option value="INITIAL_STOCK">Estoque Inicial (E8)</option>
+                          <option value="PRODUCTION_PURCHASE">Produção/Compras (G8)</option>
+                          <option value="RETURN_ENTRY">Devolução/Entradas (H8)</option>
+                          <option value="ADJUSTMENT_ENTRY">Ajuste Entrada (I8)</option>
+                          <option value="ADJUSTMENT_EXIT">Ajuste Saída (K8)</option>
+                          <option value="OTHER_EXIT">Outras Saídas (L8)</option>
+                          <option value="BONIFICATION">Bonificação (M8)</option>
+                          <option value="SALE">Venda (N8)</option>
+                          <option value="LOSS">Perda (O8)</option>
+                          <option value="REQUISITION">Requisição (P8)</option>
+                          <option value="FINAL_STOCK">Estoque Final (S8)</option>
+                        </select>
+                      </div>
                     </div>
                     <div className="space-y-1">
                       <label className="text-[10px] font-black uppercase tracking-widest text-slate-500">Descrição</label>
@@ -504,6 +1158,24 @@ const MovementsPage: React.FC = () => {
                         autoFocus
                         className={`w-full px-3 py-2 rounded-xl text-xs font-bold outline-none border ${darkMode ? 'bg-slate-950 border-slate-800 text-white' : 'bg-white border-slate-200 text-slate-900'}`}
                       />
+                      <select 
+                        defaultValue={type.category || ''}
+                        onChange={(e) => handleUpdateType(type.code, { category: e.target.value as any })}
+                        className={`w-full px-3 py-2 rounded-xl text-xs font-bold outline-none border ${darkMode ? 'bg-slate-950 border-slate-800 text-white' : 'bg-white border-slate-200 text-slate-900'}`}
+                      >
+                        <option value="">Nenhuma Categoria</option>
+                        <option value="INITIAL_STOCK">Estoque Inicial (E8)</option>
+                        <option value="PRODUCTION_PURCHASE">Produção/Compras (G8)</option>
+                        <option value="RETURN_ENTRY">Devolução/Entradas (H8)</option>
+                        <option value="ADJUSTMENT_ENTRY">Ajuste Entrada (I8)</option>
+                        <option value="ADJUSTMENT_EXIT">Ajuste Saída (K8)</option>
+                        <option value="OTHER_EXIT">Outras Saídas (L8)</option>
+                        <option value="BONIFICATION">Bonificação (M8)</option>
+                        <option value="SALE">Venda (N8)</option>
+                        <option value="LOSS">Perda (O8)</option>
+                        <option value="REQUISITION">Requisição (P8)</option>
+                        <option value="FINAL_STOCK">Estoque Final (S8)</option>
+                      </select>
                       <div className="flex gap-2">
                         <button onClick={() => setEditingType(null)} className="flex-1 py-2 rounded-xl bg-slate-100 dark:bg-slate-800 text-[10px] font-black uppercase tracking-widest">Cancelar</button>
                       </div>

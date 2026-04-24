@@ -25,7 +25,9 @@ import {
 import { useAudit } from '../context/AuditContext';
 import { useNavigate } from 'react-router-dom';
 import { generateAuditPDF } from '../utils/pdfGenerator';
+import { generateAuditPPT } from '../utils/pptGenerator';
 import { motion } from 'framer-motion';
+import { safeLocalStorageSet } from '../utils/storageUtils';
 import SummaryCards from '../components/dashboard/SummaryCards';
 import AlertsSection from '../components/dashboard/AlertsSection';
 import AIInsightCard from '../components/AIAssistant/AIInsightCard';
@@ -63,7 +65,8 @@ const DashboardPage: React.FC = () => {
     setIsPresentationMode,
     syncSapStatus,
     syncSapLastDate,
-    syncSapData
+    syncSapData,
+    addToast
   } = useAudit();
 
   const formatoMoeda = useMemo(() => {
@@ -187,6 +190,12 @@ const DashboardPage: React.FC = () => {
     generateAuditPDF(resultado, supplierSummary);
   }, [resultado, supplierSummary]);
 
+  const handleExportPPT = useCallback(() => {
+    if (!resultado || !supplierSummary.length) return;
+    generateAuditPPT(resultado, supplierSummary);
+    addToast('Apresentação PowerPoint gerada com sucesso!', 'success');
+  }, [resultado, supplierSummary, addToast]);
+
   const alerts = useMemo(() => {
     if (!resultado) return [];
     const foundAlerts: any[] = [];
@@ -231,7 +240,7 @@ const DashboardPage: React.FC = () => {
 
   const handleFinishOnboarding = () => {
     setShowOnboarding(false);
-    localStorage.setItem('miniSapOnboardingDone', 'true');
+    safeLocalStorageSet('miniSapOnboardingDone', 'true');
   };
 
   if (isProcessing) {
@@ -411,6 +420,12 @@ const DashboardPage: React.FC = () => {
             className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all ${darkMode ? 'bg-slate-800 text-[#8DC63F] hover:bg-slate-700' : 'bg-white text-[#78AF32] border border-gray-200 hover:bg-gray-50'}`}
           >
             <FileText className="w-4 h-4" /> Exportar PDF
+          </button>
+          <button 
+            onClick={handleExportPPT}
+            className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all ${darkMode ? 'bg-slate-800 text-orange-400 hover:bg-slate-700' : 'bg-white text-orange-600 border border-gray-200 hover:bg-gray-50'}`}
+          >
+            <Download className="w-4 h-4" /> Exportar PPT
           </button>
         </div>
       </header>

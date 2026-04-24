@@ -33,6 +33,7 @@ import {
   Clock,
   AlertCircle,
   CheckCircle2,
+  ListChecks,
   HelpCircle as HelpIcon,
   Cpu,
   Edit3,
@@ -68,8 +69,10 @@ const AuditDetailsPage: React.FC = () => {
     dataFim: dataFimContext, setDataFim: setFilterDataFimContext,
     updateDivergencia, bulkUpdateDivergencias,
     currency, warnings, showFinancialImpact,
-    askAI
+    askAI, aproveDivergencia, rejeitarDivergencia, recipes
   } = useAudit();
+
+  const aiUser = useMemo(() => ({ nome: 'Auditor Natulab', cargo: 'Fiscal' }), []);
 
   const formatoMoeda = useMemo(() => {
     return new Intl.NumberFormat('pt-BR', { 
@@ -427,14 +430,15 @@ const AuditDetailsPage: React.FC = () => {
     valorTotalSemFrete: false,
     valorTotalComFrete: false,
   });
-  const [expandedRows, setExpandedRows] = useState<Set<number>>(new Set());
+  const [expandedRows, setExpandedRows] = useState<Set<number | string>>(new Set());
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(25);
   const [isExportModalOpen, setIsExportModalOpen] = useState(false);
   const [isSAPExportModalOpen, setIsSAPExportModalOpen] = useState(false);
-  const [selectedItems, setSelectedItems] = useState<Set<number>>(new Set());
+  const [selectedItems, setSelectedItems] = useState<Set<number | string>>(new Set());
   const [isBulkEditModalOpen, setIsBulkEditModalOpen] = useState(false);
   const [sortConfig, setSortConfig] = useState<{ key: string; direction: 'asc' | 'desc' } | null>(null);
+  const [isGrouped, setIsGrouped] = useState(false);
 
   const handleSort = (key: string) => {
     setSortConfig(prev => {
@@ -794,6 +798,63 @@ const AuditDetailsPage: React.FC = () => {
       });
     }
 
+    // Apply Material/Description Grouping if enabled
+    if (isGrouped) {
+      const groupedMap: Record<string, any> = {};
+      
+      allFilteredItems.forEach(item => {
+        const key = `${item.material}|${item.descricao}`;
+        if (!groupedMap[key]) {
+          groupedMap[key] = {
+            ...item,
+            id: `grouped_${key}`, // Use string ID for groups
+            quantidade: 0,
+            impactoFinanceiro: 0,
+            custoTotalRealCKM3: 0, // quantidade * custoPadrao
+            valorTotalNF: 0, // quantidade * precoEfetivo
+            count: 0,
+            numeroNF: 'Vários',
+            empresa: 'Várias',
+            arquivo: 'Vários',
+            tipoMaterial: item.tipoMaterial,
+            categoriaNF: item.categoriaNF,
+            origemMaterial: item.origemMaterial,
+            status: 'Agrupado',
+            _isGroupRoot: true,
+            children: [] // Store children items
+          };
+        }
+        
+        groupedMap[key].quantidade += item.quantidade || 0;
+        groupedMap[key].impactoFinanceiro += item.impactoFinanceiro || 0;
+        groupedMap[key].custoTotalRealCKM3 += (item.quantidade || 0) * (item.custoPadrao || 0);
+        groupedMap[key].valorTotalNF += (item.quantidade || 0) * (item.precoEfetivo || 0);
+        groupedMap[key].count++;
+        groupedMap[key].children.push(item);
+      });
+
+      // Recalculate average costs/prices for visualization
+      const finalGroupedItems = Object.values(groupedMap).map(group => {
+        if (group.quantidade > 0) {
+          group.custoPadrao = group.custoTotalRealCKM3 / group.quantidade;
+          group.precoEfetivo = group.valorTotalNF / group.quantidade;
+          group.variacaoPerc = group.custoPadrao !== 0 ? ((group.precoEfetivo / group.custoPadrao) - 1) * 100 : 0;
+        }
+        return group;
+      });
+
+      return {
+        allFilteredItems: finalGroupedItems,
+        selectableItems: [], // Disable selection in grouped mode or handle separately
+        cfopSummary: Object.values(cfopMap).sort((a: any, b: any) => (b.prejuizo - b.economia) - (a.prejuizo - a.economia)),
+        supplierSummary: Object.values(supplierMap).sort((a: any, b: any) => (b.prejuizo - b.economia) - (a.prejuizo - a.economia)),
+        materialSummary: Object.values(materialMap).sort((a: any, b: any) => (b.prejuizo - b.economia) - (a.prejuizo - a.economia)),
+        pivotSummary: Object.values(pivotMap).sort((a: any, b: any) => (b.prejuizo - b.economia) - (a.prejuizo - a.economia)),
+        totals,
+        advancedFilterError
+      };
+    }
+
     return {
       allFilteredItems,
       selectableItems,
@@ -860,7 +921,7 @@ const AuditDetailsPage: React.FC = () => {
     addToast(`Filtrado por ${type}: ${value}`, 'info');
   };
 
-  const toggleRow = React.useCallback((id: number) => {
+  const toggleRow = React.useCallback((id: number | string) => {
     setExpandedRows(prev => {
       const next = new Set(prev);
       if (next.has(id)) {
@@ -1567,7 +1628,7 @@ const AuditDetailsPage: React.FC = () => {
           case 'Empresa': val = item.empresa; break;
           case 'Número NF': val = item.numeroNF; break;
           case 'Qtd': val = item.quantidade; break;
-          case 'Preço NF': val = item.precoEfetivo; break;
+          case 'Taxa de Câmbio': val = item.precoEfetivo; break;
           case 'Custo SAP': val = item.custoPadrao; break;
           case 'Impacto': val = item.impactoFinanceiro; break;
           case 'Status': val = item.status; break;
@@ -1616,7 +1677,7 @@ const AuditDetailsPage: React.FC = () => {
     }, 100);
   }, [resultado, allFilteredItems, selectedItems, addToast]);
 
-  const toggleSelectItem = React.useCallback((id: number) => {
+  const toggleSelectItem = React.useCallback((id: number | string) => {
     setSelectedItems(prev => {
       const next = new Set(prev);
       if (next.has(id)) next.delete(id);
@@ -1656,7 +1717,7 @@ const AuditDetailsPage: React.FC = () => {
 
   const toggleSelectAll = () => {
     const pageIds = selectableItems.map(d => d.id);
-    const allSelected = pageIds.every(id => selectedItems.has(id));
+    const allSelected = pageIds.length > 0 && pageIds.every(id => selectedItems.has(id));
 
     if (allSelected) {
       setSelectedItems(prev => {
@@ -1671,6 +1732,17 @@ const AuditDetailsPage: React.FC = () => {
         return next;
       });
     }
+  };
+
+  const selectAllFiltered = () => {
+    const allIds = allFilteredItems.filter(d => 'id' in d).map(d => d.id);
+    setSelectedItems(new Set(allIds));
+    addToast(`Todos os ${allIds.length} itens filtrados foram selecionados.`, 'info');
+  };
+
+  const clearSelection = () => {
+    setSelectedItems(new Set());
+    addToast('Seleção limpa.', 'info');
   };
 
   const toggleAllRows = () => {
@@ -1718,16 +1790,19 @@ const AuditDetailsPage: React.FC = () => {
   }), []);
 
   const VirtuosoHeader = useCallback(() => (
-    <div className={`flex items-center text-[10px] uppercase tracking-wider font-black border-b sticky top-0 z-30 h-12 ${darkMode ? 'bg-slate-800 border-slate-800 text-slate-400' : 'bg-slate-50 border-slate-200 text-slate-500 shadow-sm'}`}>
-      <div className={`flex items-center justify-center shrink-0 w-10 h-full sticky left-0 z-40 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.05)] ${darkMode ? 'bg-slate-800' : 'bg-slate-50'}`}>
-        <Tooltip content="Selecionar todos os itens filtrados" darkMode={darkMode}>
+    <div className={`flex items-center text-[10px] uppercase tracking-wider font-black border-b sticky top-0 z-30 h-12 transition-colors duration-500 ${selectedItems.size > 0 ? (darkMode ? 'bg-brand-green/10 border-brand-green/30' : 'bg-brand-green/5 border-brand-green/20') : (darkMode ? 'bg-slate-800 border-slate-800' : 'bg-slate-50 border-slate-200 shadow-sm')} ${darkMode ? 'text-slate-400' : 'text-slate-500'}`}>
+      <div className={`flex items-center justify-center shrink-0 w-10 h-full sticky left-0 z-40 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.05)] transition-colors duration-500 ${selectedItems.size > 0 ? (darkMode ? 'bg-slate-800' : 'bg-brand-light') : (darkMode ? 'bg-slate-800' : 'bg-slate-50')}`}>
+        <Tooltip content={isAllSelected ? "Desmarcar todos" : "Selecionar itens visíveis"} darkMode={darkMode}>
           <input 
             type="checkbox" 
             checked={isAllSelected}
             onChange={toggleSelectAll}
-            className="w-3.5 h-3.5 rounded border-gray-300 text-brand-green focus:ring-brand-green"
+            className="w-3.5 h-3.5 rounded border-gray-300 text-brand-green focus:ring-brand-green cursor-pointer"
           />
         </Tooltip>
+        {selectedItems.size > 0 && (
+          <div className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-brand-green rounded-full border-2 border-white dark:border-slate-800 animate-pulse" />
+        )}
       </div>
       <div className={`flex items-center justify-center shrink-0 w-80 h-full sticky left-10 z-40 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)] ${darkMode ? 'bg-slate-800' : 'bg-gray-100'}`}>
         <div className="flex items-center justify-center gap-2">
@@ -1761,10 +1836,11 @@ const AuditDetailsPage: React.FC = () => {
       {showColunas.valorLiqComFrete && <SortableHeader label="V. Liq c/ Frete" columnKey="valorLiqComFrete" width="w-32" align="right" />}
       {showColunas.valorTotalSemFrete && <SortableHeader label="Total s/ Frete" columnKey="valorTotalSemFrete" width="w-32" align="right" />}
       {showColunas.valorTotalComFrete && <SortableHeader label="Total c/ Frete" columnKey="valorTotalComFrete" width="w-32" align="right" />}
-      <SortableHeader label="Preço NF" columnKey="precoEfetivo" width="w-32" align="right" />
-      <SortableHeader label="Custo SAP" columnKey="custoPadrao" width="w-32" align="right" />
+      <SortableHeader label={isGrouped ? "Σ Qtde." : "K - Qtde."} columnKey="quantidade" width="w-24" align="right" tooltip={isGrouped ? "Soma das quantidades agrupadas" : "Quantidade total"} />
+      <SortableHeader label={isGrouped ? "Preço Médio Ent." : "Taxa de Câmbio"} columnKey="precoEfetivo" width="w-32" align="right" tooltip={isGrouped ? "Preço médio efetivo de entrada" : "Preço unitário de entrada"} />
+      <SortableHeader label={isGrouped ? "Σ Vlr. Real CKM3" : "L - Vlr. Real CKM3"} columnKey="custoPadrao" width="w-32" align="right" tooltip={isGrouped ? "Soma do valor real do CKM3" : "Custo padrão unitário SAP"} />
       <SortableHeader label="Variação" columnKey="variacaoPerc" width="w-32" align="right" />
-      {showFinancialImpact && <SortableHeader label="Impacto" columnKey="impactoFinanceiro" width="w-32" align="right" />}
+      {showFinancialImpact && <SortableHeader label={isGrouped ? "Σ Impacto" : "Impacto"} columnKey="impactoFinanceiro" width="w-32" align="right" tooltip={isGrouped ? "Soma do impacto financeiro" : "Impacto financeiro individual"} />}
       <div className="flex items-center justify-center px-2 shrink-0 w-24 h-full text-center">Notas</div>
       <SortableHeader label="Status" columnKey="status" width="w-24" align="center" />
       <SortableHeader label="Tipo" columnKey="tipo" width="w-24" align="center" />
@@ -2982,40 +3058,130 @@ const AuditDetailsPage: React.FC = () => {
         )}
 
         {(activeTab === 'divergencias' || activeTab === 'todos' || activeTab === 'cfop' || activeTab === 'fornecedores' || activeTab === 'top5') && (
-          <div className={`px-6 py-3 border-b flex items-center justify-between ${darkMode ? 'border-slate-800 bg-slate-900/50' : 'border-gray-100 bg-gray-50/50'}`}>
-            <div className="flex items-center gap-4">
-              <p className={`text-[10px] font-bold uppercase tracking-wider ${darkMode ? 'text-slate-500' : 'text-gray-400'}`}>
-                Total: <span className="text-[#8DC63F]">{currentCount}</span> itens
-              </p>
+          <div className={`px-6 py-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b ${darkMode ? 'border-slate-800 bg-slate-900/30' : 'border-gray-100 bg-white/50'}`}>
+            <div className="flex items-center gap-6">
+              <div className="flex items-center gap-4">
+                <div className={`flex items-center gap-2 px-3 py-1.5 rounded-xl border ${darkMode ? 'bg-slate-800/50 border-slate-700 shadow-inner' : 'bg-white border-gray-100 shadow-sm'}`}>
+                  <ListChecks className={`w-3.5 h-3.5 ${darkMode ? 'text-[#8DC63F]' : 'text-[#78AF32]'}`} />
+                  <p className={`text-[11px] font-black uppercase tracking-widest ${darkMode ? 'text-slate-300' : 'text-slate-700'}`}>
+                    Total de Itens: <span className="text-[#8DC63F] ml-1">{currentCount}</span>
+                  </p>
+                </div>
+                
+                {selectedItems.size > 0 && (
+                  <div className={`flex items-center gap-2 px-3 py-1.5 rounded-xl border animate-in zoom-in duration-300 ${darkMode ? 'bg-brand-green/10 border-brand-green/30 text-brand-green' : 'bg-brand-green/5 border-brand-green/20 text-[#78AF32]'}`}>
+                    <CheckSquare className="w-3.5 h-3.5" />
+                    <span className="text-[11px] font-black uppercase tracking-widest">
+                      {selectedItems.size} selecionados
+                    </span>
+                  </div>
+                )}
+              </div>
+
+              {(activeTab === 'divergencias' || activeTab === 'todos') && (
+                <div className="flex items-center gap-4 ml-4 h-8 pl-6 border-l border-gray-200 dark:border-slate-800">
+                  <div className="flex items-center gap-2 group cursor-pointer" onClick={() => setIsGrouped(!isGrouped)}>
+                    <p className={`text-[10px] font-black uppercase tracking-widest transition-colors ${isGrouped ? 'text-[#8DC63F]' : (darkMode ? 'text-slate-500 group-hover:text-slate-300' : 'text-gray-400 group-hover:text-gray-600')}`}>
+                      Agrupar por Material
+                    </p>
+                    <button 
+                      className={`relative inline-flex h-5 w-10 shrink-0 items-center rounded-full transition-all duration-300 focus:outline-none shadow-inner ${isGrouped ? 'bg-[#8DC63F]' : (darkMode ? 'bg-slate-800 border border-slate-700' : 'bg-gray-200')}`}
+                    >
+                      <span
+                        className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white shadow-md transition-all duration-300 ${isGrouped ? 'translate-x-5.5' : 'translate-x-1'}`}
+                      />
+                    </button>
+                  </div>
+                  
+                  {isGrouped && (
+                    <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-[#8DC63F]/10 border border-[#8DC63F]/20">
+                      <div className="w-1 h-1 rounded-full bg-[#8DC63F] animate-pulse" />
+                      <span className="text-[8px] font-black text-[#8DC63F] uppercase tracking-tighter">Otimizado</span>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+
+            <div className="flex items-center gap-3">
+               <div className={`p-1 rounded-lg border flex items-center transition-all ${darkMode ? 'bg-slate-900 border-slate-800' : 'bg-gray-100 border-gray-200'}`}>
+                  <button 
+                    onClick={() => setItemsPerPage(25)}
+                    className={`px-3 py-1 rounded-md text-[9px] font-black uppercase tracking-widest transition-all ${itemsPerPage === 25 ? (darkMode ? 'bg-slate-800 text-[#8DC63F] shadow-lg' : 'bg-white text-[#78AF32] shadow-sm') : (darkMode ? 'text-slate-600 hover:text-slate-400' : 'text-gray-400 hover:text-gray-600')}`}
+                  >
+                    25 items
+                  </button>
+                  <button 
+                    onClick={() => setItemsPerPage(100)}
+                    className={`px-3 py-1 rounded-md text-[9px] font-black uppercase tracking-widest transition-all ${itemsPerPage === 100 ? (darkMode ? 'bg-slate-800 text-[#8DC63F] shadow-lg' : 'bg-white text-[#78AF32] shadow-sm') : (darkMode ? 'text-slate-600 hover:text-slate-400' : 'text-gray-400 hover:text-gray-600')}`}
+                  >
+                    100 items
+                  </button>
+               </div>
             </div>
           </div>
         )}
 
         {(activeTab === 'divergencias' || activeTab === 'todos') ? (
-          <div 
-            onMouseDown={dragScrollMain.onMouseDown}
-            onMouseLeave={dragScrollMain.onMouseLeave}
-            onMouseUp={dragScrollMain.onMouseUp}
-            onMouseMove={dragScrollMain.onMouseMove}
-            className={`rounded-xl border overflow-hidden flex flex-col ${darkMode ? 'bg-slate-900 border-slate-800' : 'bg-white border-gray-200'}`}
-            style={{ height: 'calc(100vh - 280px)', minHeight: '650px', ...dragScrollMain.style }}
-          >
-            {selectedItems.size > 0 && selectedItems.size < allFilteredItems.length && (
-              <div className={`px-4 py-1.5 text-[9px] font-bold uppercase tracking-wider flex items-center justify-start gap-3 border-b animate-in slide-in-from-top-1 duration-300 ${darkMode ? 'bg-slate-800/50 border-slate-800 text-slate-400' : 'bg-gray-50 border-gray-100 text-gray-500'}`}>
-                <span>Você selecionou <span className="text-brand-green">{selectedItems.size}</span> itens.</span>
-                <button 
-                  onClick={() => {
-                    const allIds = allFilteredItems.filter(d => 'impactoFinanceiro' in d).map(d => d.id);
-                    setSelectedItems(new Set(allIds));
-                    addToast(`Todos os ${allIds.length} itens filtrados foram selecionados.`, 'info');
-                  }}
-                  className="text-brand-green hover:underline"
-                >
-                  Selecionar todos os {allFilteredItems.length} itens filtrados
-                </button>
+          <div className="relative flex-1 flex flex-col min-h-0">
+            {/* Enhanced Bulk Action Bar */}
+            {selectedItems.size > 0 && (
+              <div className={`mt-4 px-6 py-3 rounded-2xl border-2 flex flex-col md:flex-row md:items-center justify-between gap-4 animate-in slide-in-from-top-2 duration-300 shadow-2xl z-50 ${darkMode ? 'bg-slate-800 border-brand-green/30 shadow-brand-green/5' : 'bg-white border-brand-green/20 shadow-brand-green/10'}`}>
+                <div className="flex items-center gap-4">
+                  <div className={`flex items-center justify-center w-10 h-10 rounded-full ${darkMode ? 'bg-brand-green/20 text-brand-green' : 'bg-brand-green/10 text-brand-green'}`}>
+                     <CheckCircle2 className="w-6 h-6" />
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <span className={`text-sm font-black ${darkMode ? 'text-slate-100' : 'text-gray-900'}`}>MODO DE SELEÇÃO ATIVA</span>
+                      <span className={`text-[10px] px-2 py-0.5 rounded-full font-black ${darkMode ? 'bg-brand-green/20 text-brand-green' : 'bg-brand-green/10 text-brand-green'}`}>
+                        {selectedItems.size} {selectedItems.size === 1 ? 'ITEM SELECIONADO' : 'ITENS SELECIONADOS'}
+                      </span>
+                    </div>
+                    <p className={`text-[10px] font-medium ${darkMode ? 'text-slate-500' : 'text-gray-400 uppercase tracking-wider'}`}>
+                      {selectedItems.size === allFilteredItems.length ? 'Todos os itens filtrados estão selecionados' : `Você pode editar todos estes ${selectedItems.size} itens de uma só vez.`}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  {selectedItems.size < allFilteredItems.length && (
+                    <button 
+                      onClick={selectAllFiltered}
+                      className={`flex items-center gap-2 px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${darkMode ? 'bg-slate-700 text-slate-300 hover:bg-slate-600' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}
+                    >
+                      <ListChecks className="w-4 h-4" />
+                      Selecionar Todos ({allFilteredItems.length})
+                    </button>
+                  )}
+                  <button 
+                    onClick={() => setIsBulkEditModalOpen(true)}
+                    className="flex items-center gap-2 px-5 py-2 bg-brand-green text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-brand-green/90 transition-all shadow-lg shadow-brand-green/20"
+                  >
+                    <Edit3 className="w-4 h-4" />
+                    Editar em Massa
+                  </button>
+                  <div className={`w-px h-6 mx-1 ${darkMode ? 'bg-slate-700' : 'bg-gray-200'}`} />
+                  <button 
+                    onClick={clearSelection}
+                    className={`p-2 rounded-xl transition-all ${darkMode ? 'text-slate-400 hover:bg-red-500/10 hover:text-red-400' : 'text-gray-400 hover:bg-red-50 hover:text-red-500'}`}
+                    title="Limpar seleção"
+                  >
+                    <X className="w-5 h-5" />
+                  </button>
+                </div>
               </div>
             )}
-            <TableVirtuoso
+
+            <div 
+              onMouseDown={dragScrollMain.onMouseDown}
+              onMouseLeave={dragScrollMain.onMouseLeave}
+              onMouseUp={dragScrollMain.onMouseUp}
+              onMouseMove={dragScrollMain.onMouseMove}
+              className={`mt-4 rounded-xl border overflow-hidden flex flex-col transition-all duration-500 ${selectedItems.size > 0 ? (darkMode ? 'ring-2 ring-brand-green/30 border-brand-green/20' : 'ring-2 ring-brand-green/10 border-brand-green/10 shadow-lg') : ''} ${darkMode ? 'bg-slate-900 border-slate-800' : 'bg-white border-gray-200'}`}
+              style={{ height: 'calc(100vh - 280px)', minHeight: '650px', ...dragScrollMain.style }}
+            >
+              <TableVirtuoso
               scrollerRef={(elem) => { if (elem) dragScrollMain.ref.current = elem as HTMLDivElement; }}
               data={allFilteredItems}
               totalCount={allFilteredItems.length}
@@ -3041,15 +3207,20 @@ const AuditDetailsPage: React.FC = () => {
                       formatoMoeda={formatoMoeda} 
                       darkMode={darkMode} 
                       showFinancialImpact={showFinancialImpact}
+                      askAI={askAI}
+                      aiUser={aiUser}
                     />
                     {isExpanded && (
                       <ExpandedRowMemo 
                         div={div} 
                         darkMode={darkMode} 
                         updateDivergencia={updateDivergencia} 
+                        aproveDivergencia={aproveDivergencia}
+                        rejeitarDivergencia={rejeitarDivergencia}
                         formatoMoeda={formatoMoeda} 
                         showFinancialImpact={showFinancialImpact}
                         askAI={askAI}
+                        aiUser={aiUser}
                       />
                     )}
                   </div>
@@ -3057,6 +3228,7 @@ const AuditDetailsPage: React.FC = () => {
               }}
             />
           </div>
+        </div>
         ) : (
           <div className="space-y-6">
             {/* Quick Stats for Summary Tabs */}

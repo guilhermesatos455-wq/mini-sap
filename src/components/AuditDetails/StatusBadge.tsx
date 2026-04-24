@@ -19,7 +19,12 @@ export const StatusBadge = ({ status, darkMode }: StatusBadgeProps) => {
       icon: Search,
       description: 'Divergência sendo investigada ou em processo de justificativa'
     },
-    'Corrigido': { 
+    'Aguardando Fornecedor': { 
+      color: 'bg-orange-500/10 text-orange-500', 
+      icon: Clock,
+      description: 'Depende de retorno ou documentação do fornecedor'
+    },
+    'Corrigido no SAP': { 
       color: 'bg-[#8DC63F]/10 text-[#8DC63F]', 
       icon: CheckCircle2,
       description: 'Divergência resolvida ou custo padrão atualizado no SAP'

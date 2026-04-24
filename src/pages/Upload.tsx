@@ -13,6 +13,7 @@ import { useAudit } from '../context/AuditContext';
 import FileUploadZone from '../components/Upload/FileUploadZone';
 import ColumnMapping from '../components/Upload/ColumnMapping';
 import Logo from '../components/Logo';
+import { OCRUpload } from '../components/Upload/OCRUpload';
 
 const UploadPage: React.FC = () => {
   const navigate = useNavigate();
@@ -174,6 +175,23 @@ const UploadPage: React.FC = () => {
             setMapColunas={setMapColunas}
           />
         </section>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+        <OCRUpload 
+          darkMode={darkMode} 
+          primaryColor="#8DC63F" 
+          onExtractData={(data) => {
+            addToast(`Dados extraídos da NF: ${data.numeroNF}`, 'success');
+            // Here you could fill some preview state or automatically add to files
+          }} 
+        />
+        <div className={`p-6 rounded-[2rem] border flex flex-col justify-center ${darkMode ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-100 shadow-xl shadow-slate-200/50'}`}>
+          <h4 className="text-sm font-black uppercase tracking-widest text-[#8DC63F] mb-2">Dica de Produtividade</h4>
+          <p className="text-xs text-slate-500 leading-relaxed">
+            Use o OCR para digitalizar notas fiscais físicas rapidamente. O NatuAssist identifica campos chave como número da NF e fornecedor automaticamente.
+          </p>
+        </div>
       </div>
 
       {/* Action Section */}

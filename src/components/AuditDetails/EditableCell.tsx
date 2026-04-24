@@ -9,14 +9,16 @@ interface EditableCellProps {
   darkMode: boolean;
   className?: string;
   formatoMoeda: Intl.NumberFormat;
+  disabled?: boolean;
 }
 
-export const EditableCell = ({ value, onSave, type = 'text', darkMode, className = "", formatoMoeda }: EditableCellProps) => {
+export const EditableCell = ({ value, onSave, type = 'text', darkMode, className = "", formatoMoeda, disabled = false }: EditableCellProps) => {
   const [isEditing, setIsEditing] = useState(false);
   const [editValue, setEditValue] = useState(value);
   const [error, setError] = useState<string | null>(null);
 
   const handleSave = () => {
+    if (disabled) return;
     let finalValue = editValue;
     if (type === 'number') {
       const rawVal = String(editValue).replace(',', '.');
@@ -79,12 +81,12 @@ export const EditableCell = ({ value, onSave, type = 'text', darkMode, className
   }, [type, value, formatoMoeda]);
 
   return (
-    <Tooltip content="Clique para editar" darkMode={darkMode}>
+    <Tooltip content={disabled ? "Edição desabilitada para este item" : "Clique para editar"} darkMode={darkMode}>
       <div 
-        className={`cursor-pointer hover:bg-black/5 dark:hover:bg-white/5 px-1 rounded transition-colors ${className}`}
+        className={`${disabled ? 'cursor-not-allowed opacity-80' : 'cursor-pointer hover:bg-black/5 dark:hover:bg-white/5'} px-1 rounded transition-colors ${className}`}
         onClick={(e) => {
           e.stopPropagation();
-          setIsEditing(true);
+          if (!disabled) setIsEditing(true);
         }}
       >
         {displayValue}

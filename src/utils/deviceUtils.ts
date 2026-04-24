@@ -1,5 +1,6 @@
 
 import { v4 as uuidv4 } from 'uuid';
+import { safeLocalStorageSet } from './storageUtils';
 
 /**
  * Gets or creates a persistent unique ID for the current device/browser.
@@ -13,12 +14,12 @@ export const getDeviceId = (): string => {
   
   if (!deviceId) {
     deviceId = `NA-${uuidv4()}`;
-    localStorage.setItem('natuassist_device_id', deviceId);
+    safeLocalStorageSet('natuassist_device_id', deviceId);
     // Also set a long-lived cookie
     document.cookie = `na_did=${deviceId}; path=/; max-age=31536000; SameSite=Strict`;
   } else {
     // Sync back to both if one is missing
-    localStorage.setItem('natuassist_device_id', deviceId);
+    safeLocalStorageSet('natuassist_device_id', deviceId);
     document.cookie = `na_did=${deviceId}; path=/; max-age=31536000; SameSite=Strict`;
   }
   

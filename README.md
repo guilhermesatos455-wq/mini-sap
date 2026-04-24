@@ -5,7 +5,7 @@ O **Mini-SAP Web Auditoria** é uma ferramenta de auditoria físcal e financeira
 ## 🌟 Funcionalidades Principais
 
 - **Auditoria Automatizada**: Processamento de arquivos SAP (CKM3) e Notas Fiscais para detecção de divergências de preços, quantidades e impostos.
-- **NatuAssist (IA Local)**: Assistente inteligente alimentado por um modelo Llama 8B rodando localmente, processando dados de auditoria com 100% de privacidade.
+- **NatuAssist (IA Local)**: Assistente inteligente alimentado por um modelo Llama 8B rodando localmente (via pendrive), processando dados de auditoria com 100% de privacidade.
 - **Segurança Robusta**: Autenticação via Google Firebase vinculada à Matrícula Funcional SAP.
 - **Interface Moderna**: Dashboard responsivo com suporte a Dark Mode, gráficos de impacto financeiro e rastreabilidade de decisões.
 - **Conformidade (Compliance)**: Registro de justificativas e histórico de decisões por auditor.
@@ -22,7 +22,7 @@ O **Mini-SAP Web Auditoria** é uma ferramenta de auditoria físcal e financeira
 ### Pré-requisitos
 
 1. **Node.js**: Instalado na versão 18 ou superior.
-2. **Ambiente Local**: Pendrive ou na maquina do usuario, com o executável Llamafile configurado com o modelo `llama-manual`.
+2. **Ambiente Local**: Pendrive com o executável Llamafile configurado com o modelo `llama-manual`.
 
 ### Instalação
 
@@ -58,3 +58,6 @@ Para que o assistente funcione, o servidor Llamafile deve estar ativo:
 ## 📄 Licença
 
 Este projeto é de uso interno para auditoria SAP. Consulte os termos de uso na aba "Termos e LGPD" dentro da aplicação.
+
+---
+Desenvolvido para modernizar a auditoria fiscal com o poder da Inteligência Artificial.

@@ -31,6 +31,7 @@ import {
 import { useAudit } from '../context/AuditContext';
 import { Link } from 'react-router-dom';
 import { requestBiometricAuth } from '../utils/biometricUtils';
+import RobotControl from '../components/RobotControl';
 
 const SettingsPage: React.FC = () => {
   const { 
@@ -44,6 +45,10 @@ const SettingsPage: React.FC = () => {
     currency, setCurrency,
     notificationSettings, setNotificationSettings,
     showFinancialImpact, setShowFinancialImpact,
+    showMaterialsPMM, setShowMaterialsPMM,
+    showRpaAutomation, setShowRpaAutomation,
+    showBranding, setShowBranding,
+    showTaxMatrix, setShowTaxMatrix,
     taxMatrix, setTaxMatrix,
     registeredUsers,
     registerUser,
@@ -119,6 +124,14 @@ const SettingsPage: React.FC = () => {
   };
 
   const handleSave = () => {
+    // Validate manager email domain if alerts are enabled
+    if (localNotificationSettings.emailAlerts && localNotificationSettings.managerEmail) {
+      if (!localNotificationSettings.managerEmail.toLowerCase().endsWith('@natulab.com.br')) {
+        addToast('O e-mail do gestor deve pertencer ao domínio @natulab.com.br', 'error');
+        return;
+      }
+    }
+
     setTolerancia(localTolerancia);
     setCfops(localCfops);
     setMapColunas(localMapColunas);
@@ -259,6 +272,17 @@ const SettingsPage: React.FC = () => {
       addToast('Erro na autenticação.', 'error');
     }
   };
+
+  const handleClearLocalStorage = () => {
+    if (window.confirm('⚠️ ATENÇÃO: Isso irá apagar TODAS as configurações, mapeamentos e dados salvos no navegador (LocalStorage). Esta ação não pode ser desfeita. Deseja continuar?')) {
+      localStorage.clear();
+      addToast('Armazenamento Local limpo! Reiniciando...', 'success');
+      setTimeout(() => {
+        window.location.reload();
+      }, 1500);
+    }
+  };
+
   const handleImportSettings = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -441,6 +465,66 @@ const SettingsPage: React.FC = () => {
             <div className="pt-4 border-t border-dashed border-slate-700/50">
               <div className="flex items-center justify-between">
                 <div>
+                  <h4 className={`text-sm font-bold ${darkMode ? 'text-slate-200' : 'text-gray-800'}`}>Habilitar Materiais & PMM</h4>
+                  <p className={`text-[10px] ${darkMode ? 'text-slate-500' : 'text-gray-500'}`}>Ativa ou desativa a aba de Materiais & PMM. Simulador e Receitas continuarão visíveis.</p>
+                </div>
+                <button 
+                  onClick={() => setShowMaterialsPMM(!showMaterialsPMM)}
+                  className={`w-12 h-6 rounded-full transition-all relative ${showMaterialsPMM ? 'bg-[#8DC63F]' : 'bg-slate-700'}`}
+                >
+                  <div className={`absolute top-1 w-4 h-4 rounded-full bg-white transition-all ${showMaterialsPMM ? 'left-7' : 'left-1'}`} />
+                </button>
+              </div>
+            </div>
+
+            <div className="pt-4 border-t border-dashed border-slate-700/50">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h4 className={`text-sm font-bold ${darkMode ? 'text-slate-200' : 'text-gray-800'}`}>Habilitar Automação RPA (Bot)</h4>
+                  <p className={`text-[10px] ${darkMode ? 'text-slate-500' : 'text-gray-500'}`}>Ativa o painel de controle do robô automação SAP.</p>
+                </div>
+                <button 
+                  onClick={() => setShowRpaAutomation(!showRpaAutomation)}
+                  className={`w-12 h-6 rounded-full transition-all relative ${showRpaAutomation ? 'bg-[#8DC63F]' : 'bg-slate-700'}`}
+                >
+                  <div className={`absolute top-1 w-4 h-4 rounded-full bg-white transition-all ${showRpaAutomation ? 'left-7' : 'left-1'}`} />
+                </button>
+              </div>
+            </div>
+
+            <div className="pt-4 border-t border-dashed border-slate-700/50">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h4 className={`text-sm font-bold ${darkMode ? 'text-slate-200' : 'text-gray-800'}`}>Habilitar Branding e Moeda</h4>
+                  <p className={`text-[10px] ${darkMode ? 'text-slate-500' : 'text-gray-500'}`}>Ativa as configurações de logo e personalização de moeda.</p>
+                </div>
+                <button 
+                  onClick={() => setShowBranding(!showBranding)}
+                  className={`w-12 h-6 rounded-full transition-all relative ${showBranding ? 'bg-[#8DC63F]' : 'bg-slate-700'}`}
+                >
+                  <div className={`absolute top-1 w-4 h-4 rounded-full bg-white transition-all ${showBranding ? 'left-7' : 'left-1'}`} />
+                </button>
+              </div>
+            </div>
+
+            <div className="pt-4 border-t border-dashed border-slate-700/50">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h4 className={`text-sm font-bold ${darkMode ? 'text-slate-200' : 'text-gray-800'}`}>Habilitar Malha Fiscal & IA</h4>
+                  <p className={`text-[10px] ${darkMode ? 'text-slate-500' : 'text-gray-500'}`}>Ativa as configurações de alíquotas fiscais e recursos de IA.</p>
+                </div>
+                <button 
+                  onClick={() => setShowTaxMatrix(!showTaxMatrix)}
+                  className={`w-12 h-6 rounded-full transition-all relative ${showTaxMatrix ? 'bg-[#8DC63F]' : 'bg-slate-700'}`}
+                >
+                  <div className={`absolute top-1 w-4 h-4 rounded-full bg-white transition-all ${showTaxMatrix ? 'left-7' : 'left-1'}`} />
+                </button>
+              </div>
+            </div>
+
+            <div className="pt-4 border-t border-dashed border-slate-700/50">
+              <div className="flex items-center justify-between">
+                <div>
                   <h4 className={`text-sm font-bold ${darkMode ? 'text-slate-200' : 'text-gray-800'}`}>Exibir Impacto Financeiro</h4>
                   <p className={`text-[10px] ${darkMode ? 'text-slate-500' : 'text-gray-500'}`}>Habilita a visualização de valores monetários em todo o programa.</p>
                 </div>
@@ -558,158 +642,180 @@ const SettingsPage: React.FC = () => {
         </section>
 
         {/* Tax Matrix & Intelligence */}
-        <section className={`lg:col-span-1 p-6 rounded-2xl border transition-all hover:shadow-lg ${darkMode ? 'bg-slate-900 border-slate-800' : 'bg-white border-gray-200'}`}>
-          <div className="flex items-center justify-between mb-6">
-            <h3 className={`flex items-center gap-2 text-lg font-bold ${darkMode ? 'text-[#8DC63F]' : 'text-gray-800'}`}>
-              <Globe className="w-5 h-5" />
-              Malha Fiscal & IA
-            </h3>
-            <div className={`p-2 rounded-lg ${darkMode ? 'bg-[#8DC63F]/10 text-[#8DC63F]' : 'bg-[#8DC63F]/5 text-[#8DC63F]'}`}>
-              <ShieldCheck className="w-4 h-4" />
+        {showTaxMatrix && (
+          <section className={`lg:col-span-1 p-6 rounded-2xl border transition-all hover:shadow-lg ${darkMode ? 'bg-slate-900 border-slate-800' : 'bg-white border-gray-200'}`}>
+            <div className="flex items-center justify-between mb-6">
+              <h3 className={`flex items-center gap-2 text-lg font-bold ${darkMode ? 'text-[#8DC63F]' : 'text-gray-800'}`}>
+                <Globe className="w-5 h-5" />
+                Malha Fiscal & IA
+              </h3>
+              <div className={`p-2 rounded-lg ${darkMode ? 'bg-[#8DC63F]/10 text-[#8DC63F]' : 'bg-[#8DC63F]/5 text-[#8DC63F]'}`}>
+                <ShieldCheck className="w-4 h-4" />
+              </div>
             </div>
-          </div>
 
-          <div className="space-y-6">
-            <div className="group">
-              <label className={`flex items-center gap-2 text-xs font-bold mb-3 ${darkMode ? 'text-slate-400' : 'text-gray-600'}`}>
-                Alíquotas ICMS-ST por Estado
-              </label>
-              <div className="max-h-64 overflow-y-auto pr-2 custom-scrollbar space-y-2">
-                {Object.entries(localTaxMatrix).map(([uf, rate]) => (
-                  <div key={uf} className="flex items-center justify-between gap-4">
-                    <span className="text-xs font-black w-8">{uf}</span>
-                    <div className="flex-1 relative">
-                      <input 
-                        type="number" 
-                        value={rate}
-                        onChange={(e) => setLocalTaxMatrix({ ...localTaxMatrix, [uf]: Number(e.target.value) })}
-                        className={`w-full px-3 py-1.5 border rounded-lg text-xs font-bold outline-none transition-all ${darkMode ? 'bg-slate-800 border-slate-700 text-slate-200 focus:border-[#8DC63F]' : 'bg-white border-gray-200 focus:border-[#8DC63F]'}`}
-                      />
-                      <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] font-bold opacity-50">%</span>
+            <div className="space-y-6">
+              <div className="group">
+                <label className={`flex items-center gap-2 text-xs font-bold mb-3 ${darkMode ? 'text-slate-400' : 'text-gray-600'}`}>
+                  Alíquotas ICMS-ST por Estado
+                </label>
+                <div className="max-h-64 overflow-y-auto pr-2 custom-scrollbar space-y-2">
+                  {Object.entries(localTaxMatrix).map(([uf, rate]) => (
+                    <div key={uf} className="flex items-center justify-between gap-4">
+                      <span className="text-xs font-black w-8">{uf}</span>
+                      <div className="flex-1 relative">
+                        <input 
+                          type="number" 
+                          value={rate}
+                          onChange={(e) => setLocalTaxMatrix({ ...localTaxMatrix, [uf]: Number(e.target.value) })}
+                          className={`w-full px-3 py-1.5 border rounded-lg text-xs font-bold outline-none transition-all ${darkMode ? 'bg-slate-800 border-slate-700 text-slate-200 focus:border-[#8DC63F]' : 'bg-white border-gray-200 focus:border-[#8DC63F]'}`}
+                        />
+                        <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] font-bold opacity-50">%</span>
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  ))}
+                </div>
+                <p className="mt-2 text-[10px] text-slate-500 italic leading-relaxed">
+                  O sistema alertará se o fornecedor destacar uma alíquota diferente da configurada para o estado.
+                </p>
               </div>
-              <p className="mt-2 text-[10px] text-slate-500 italic leading-relaxed">
-                O sistema alertará se o fornecedor destacar uma alíquota diferente da configurada para o estado.
-              </p>
-            </div>
 
-            <div className="pt-4 border-t border-dashed border-slate-700/50">
-              <h4 className={`text-xs font-bold mb-3 ${darkMode ? 'text-slate-200' : 'text-gray-800'}`}>Inteligência de Classificação</h4>
-              <div className="space-y-3">
-                <div className={`p-3 rounded-xl border ${darkMode ? 'bg-slate-800/50 border-slate-700' : 'bg-gray-50 border-gray-100'}`}>
-                  <p className="text-[10px] font-bold mb-1">Aprendizado Ativo</p>
-                  <p className="text-[9px] text-slate-500 leading-relaxed">
-                    O sistema aprende com suas decisões passadas. Se você ignorar variações de centavos para um material, ele sugerirá "Ignorado" automaticamente no futuro.
-                  </p>
+              <div className="pt-4 border-t border-dashed border-slate-700/50">
+                <h4 className={`text-xs font-bold mb-3 ${darkMode ? 'text-slate-200' : 'text-gray-800'}`}>Inteligência de Classificação</h4>
+                <div className="space-y-3">
+                  <div className={`p-3 rounded-xl border ${darkMode ? 'bg-slate-800/50 border-slate-700' : 'bg-gray-50 border-gray-100'}`}>
+                    <p className="text-[10px] font-bold mb-1">Aprendizado Ativo</p>
+                    <p className="text-[9px] text-slate-500 leading-relaxed">
+                      O sistema aprende com suas decisões passadas. Se você ignorar variações de centavos para um material, ele sugerirá "Ignorado" automaticamente no futuro.
+                    </p>
+                  </div>
+                  <div className={`p-3 rounded-xl border ${darkMode ? 'bg-slate-800/50 border-slate-700' : 'bg-gray-50 border-gray-100'}`}>
+                    <p className="text-[10px] font-bold mb-1">Auto-Justificativa</p>
+                    <p className="text-[9px] text-slate-500 leading-relaxed">
+                      Justificativas recorrentes são sugeridas automaticamente, reduzindo o tempo de digitação em até 80%.
+                    </p>
+                  </div>
+                  <Link 
+                    to="/ai-terms"
+                    className={`flex items-center justify-center gap-2 p-3 rounded-xl border border-dashed transition-all ${darkMode ? 'border-blue-500/30 text-blue-400 hover:bg-blue-500/10' : 'border-blue-200 text-blue-600 hover:bg-blue-50'}`}
+                  >
+                    <ShieldCheck className="w-4 h-4" />
+                    <span className="text-[10px] font-black uppercase tracking-widest">Termos de Uso e LGPD da IA</span>
+                  </Link>
                 </div>
-                <div className={`p-3 rounded-xl border ${darkMode ? 'bg-slate-800/50 border-slate-700' : 'bg-gray-50 border-gray-100'}`}>
-                  <p className="text-[10px] font-bold mb-1">Auto-Justificativa</p>
-                  <p className="text-[9px] text-slate-500 leading-relaxed">
-                    Justificativas recorrentes são sugeridas automaticamente, reduzindo o tempo de digitação em até 80%.
-                  </p>
-                </div>
-                <Link 
-                  to="/ai-terms"
-                  className={`flex items-center justify-center gap-2 p-3 rounded-xl border border-dashed transition-all ${darkMode ? 'border-blue-500/30 text-blue-400 hover:bg-blue-500/10' : 'border-blue-200 text-blue-600 hover:bg-blue-50'}`}
-                >
-                  <ShieldCheck className="w-4 h-4" />
-                  <span className="text-[10px] font-black uppercase tracking-widest">Termos de Uso e LGPD da IA</span>
-                </Link>
               </div>
             </div>
-          </div>
-        </section>
+          </section>
+        )}
 
         {/* Branding Section */}
-        <section className={`lg:col-span-1 p-6 rounded-2xl border ${darkMode ? 'bg-slate-900 border-slate-800' : 'bg-white border-gray-200'}`}>
-          <h3 className={`flex items-center gap-2 text-lg font-bold mb-6 ${darkMode ? 'text-[#8DC63F]' : 'text-gray-800'}`}>
-            <LayoutIcon className="w-5 h-5" />
-            Branding e Moeda
-          </h3>
-          
-          <div className="space-y-6">
-            <div>
-              <label className={`flex items-center gap-2 text-xs font-bold mb-2 ${darkMode ? 'text-slate-400' : 'text-gray-600'}`}>
-                Nome da Empresa
-              </label>
-              <input 
-                type="text" 
-                value={localBranding.companyName}
-                onChange={(e) => setLocalBranding({...localBranding, companyName: e.target.value})}
-                className={`w-full p-3 border rounded-xl text-sm transition-all focus:outline-none focus:ring-2 ${darkMode ? 'bg-slate-800 border-slate-700 text-slate-100 focus:ring-[#8DC63F]/50' : 'border-gray-200 focus:ring-[#8DC63F]/50'}`}
-              />
-            </div>
-
-            <div>
-              <label className={`flex items-center gap-2 text-xs font-bold mb-2 ${darkMode ? 'text-slate-400' : 'text-gray-600'}`}>
-                Moeda do Sistema
-              </label>
-              <select 
-                value={localCurrency}
-                onChange={(e) => setLocalCurrency(e.target.value)}
-                className={`w-full p-3 border rounded-xl text-sm transition-all focus:outline-none focus:ring-2 ${darkMode ? 'bg-slate-800 border-slate-700 text-slate-100 focus:ring-[#8DC63F]/50' : 'border-gray-200 focus:ring-[#8DC63F]/50'}`}
-              >
-                <option value="BRL">Real (R$)</option>
-                <option value="USD">Dólar (US$)</option>
-                <option value="EUR">Euro (€)</option>
-              </select>
-            </div>
-
-            <div>
-              <label className={`flex items-center gap-2 text-xs font-bold mb-2 ${darkMode ? 'text-slate-400' : 'text-gray-600'}`}>
-                Cor Primária
-              </label>
-              <div className="flex gap-3 items-center">
-                <input 
-                  type="color" 
-                  value={localBranding.primaryColor}
-                  onChange={(e) => setLocalBranding({...localBranding, primaryColor: e.target.value})}
-                  className="w-12 h-12 rounded-lg border-0 cursor-pointer p-0 overflow-hidden"
-                />
+        {showBranding && (
+          <section className={`lg:col-span-1 p-6 rounded-2xl border ${darkMode ? 'bg-slate-900 border-slate-800' : 'bg-white border-gray-200'}`}>
+            <h3 className={`flex items-center gap-2 text-lg font-bold mb-6 ${darkMode ? 'text-[#8DC63F]' : 'text-gray-800'}`}>
+              <LayoutIcon className="w-5 h-5" />
+              Branding e Moeda
+            </h3>
+            
+            <div className="space-y-6">
+              <div>
+                <label className={`flex items-center gap-2 text-xs font-bold mb-2 ${darkMode ? 'text-slate-400' : 'text-gray-600'}`}>
+                  Nome da Empresa
+                </label>
                 <input 
                   type="text" 
-                  value={localBranding.primaryColor}
-                  onChange={(e) => setLocalBranding({...localBranding, primaryColor: e.target.value})}
-                  className={`flex-1 p-3 border rounded-xl text-sm transition-all focus:outline-none focus:ring-2 ${darkMode ? 'bg-slate-800 border-slate-700 text-slate-100 focus:ring-[#8DC63F]/50' : 'border-gray-200 focus:ring-[#8DC63F]/50'}`}
+                  value={localBranding.companyName}
+                  onChange={(e) => setLocalBranding({...localBranding, companyName: e.target.value})}
+                  className={`w-full p-3 border rounded-xl text-sm transition-all focus:outline-none focus:ring-2 ${darkMode ? 'bg-slate-800 border-slate-700 text-slate-100 focus:ring-[#8DC63F]/50' : 'border-gray-200 focus:ring-[#8DC63F]/50'}`}
                 />
               </div>
-            </div>
 
-            <div>
-              <label className={`flex items-center gap-2 text-xs font-bold mb-2 ${darkMode ? 'text-slate-400' : 'text-gray-600'}`}>
-                URL do Logo (SVG/PNG)
-              </label>
-              <input 
-                type="text" 
-                value={localBranding.logoUrl}
-                onChange={(e) => setLocalBranding({...localBranding, logoUrl: e.target.value})}
-                placeholder="https://exemplo.com/logo.png"
-                className={`w-full p-3 border rounded-xl text-sm transition-all focus:outline-none focus:ring-2 ${darkMode ? 'bg-slate-800 border-slate-700 text-slate-100 focus:ring-[#8DC63F]/50' : 'border-gray-200 focus:ring-[#8DC63F]/50'}`}
-              />
-              <p className="mt-2 text-[10px] text-slate-500 italic">Deixe em branco para usar o logo padrão.</p>
-            </div>
+              <div>
+                <label className={`flex items-center gap-2 text-xs font-bold mb-2 ${darkMode ? 'text-slate-400' : 'text-gray-600'}`}>
+                  Moeda do Sistema
+                </label>
+                <select 
+                  value={localCurrency}
+                  onChange={(e) => setLocalCurrency(e.target.value)}
+                  className={`w-full p-3 border rounded-xl text-sm transition-all focus:outline-none focus:ring-2 ${darkMode ? 'bg-slate-800 border-slate-700 text-slate-100 focus:ring-[#8DC63F]/50' : 'border-gray-200 focus:ring-[#8DC63F]/50'}`}
+                >
+                  <option value="BRL">Real (R$)</option>
+                  <option value="USD">Dólar (US$)</option>
+                  <option value="EUR">Euro (€)</option>
+                </select>
+              </div>
 
-            <div className="pt-4 border-t border-dashed border-slate-700/50">
-              <label className={`flex items-center gap-2 text-xs font-bold mb-3 ${darkMode ? 'text-slate-400' : 'text-gray-600'}`}>
-                Tema do Sistema
-              </label>
-              <button
-                onClick={() => setDarkMode(!darkMode)}
-                className={`w-full flex items-center justify-between p-3 rounded-xl border transition-all ${darkMode ? 'bg-slate-800 border-slate-700 text-[#8DC63F] hover:bg-slate-700' : 'bg-gray-50 border-gray-200 text-gray-700 hover:bg-gray-100'}`}
-              >
-                <div className="flex items-center gap-3">
-                  {darkMode ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
-                  <span className="text-sm font-bold">{darkMode ? 'Alternar para Modo Claro' : 'Alternar para Modo Escuro'}</span>
+              <div>
+                <label className={`flex items-center gap-2 text-xs font-bold mb-2 ${darkMode ? 'text-slate-400' : 'text-gray-600'}`}>
+                  Cor Primária
+                </label>
+                <div className="flex gap-3 items-center">
+                  <input 
+                    type="color" 
+                    value={localBranding.primaryColor}
+                    onChange={(e) => setLocalBranding({...localBranding, primaryColor: e.target.value})}
+                    className="w-12 h-12 rounded-lg border-0 cursor-pointer p-0 overflow-hidden"
+                  />
+                  <input 
+                    type="text" 
+                    value={localBranding.primaryColor}
+                    onChange={(e) => setLocalBranding({...localBranding, primaryColor: e.target.value})}
+                    className={`flex-1 p-3 border rounded-xl text-sm transition-all focus:outline-none focus:ring-2 ${darkMode ? 'bg-slate-800 border-slate-700 text-slate-100 focus:ring-[#8DC63F]/50' : 'border-gray-200 focus:ring-[#8DC63F]/50'}`}
+                  />
                 </div>
-                <div className={`w-10 h-5 rounded-full relative transition-all ${darkMode ? 'bg-[#8DC63F]' : 'bg-gray-300'}`}>
-                  <div className={`absolute top-1 w-3 h-3 rounded-full bg-white transition-all ${darkMode ? 'left-6' : 'left-1'}`} />
-                </div>
-              </button>
+              </div>
+
+              <div>
+                <label className={`flex items-center gap-2 text-xs font-bold mb-2 ${darkMode ? 'text-slate-400' : 'text-gray-600'}`}>
+                  URL do Logo (SVG/PNG)
+                </label>
+                <input 
+                  type="text" 
+                  value={localBranding.logoUrl}
+                  onChange={(e) => setLocalBranding({...localBranding, logoUrl: e.target.value})}
+                  placeholder="https://exemplo.com/logo.png"
+                  className={`w-full p-3 border rounded-xl text-sm transition-all focus:outline-none focus:ring-2 ${darkMode ? 'bg-slate-800 border-slate-700 text-slate-100 focus:ring-[#8DC63F]/50' : 'border-gray-200 focus:ring-[#8DC63F]/50'}`}
+                />
+                <p className="mt-2 text-[10px] text-slate-500 italic">Deixe em branco para usar o logo padrão.</p>
+              </div>
+
+              <div className="pt-4 border-t border-dashed border-slate-700/50">
+                <label className={`flex items-center gap-2 text-xs font-bold mb-3 ${darkMode ? 'text-slate-400' : 'text-gray-600'}`}>
+                  Tema do Sistema
+                </label>
+                <button
+                  onClick={() => setDarkMode(!darkMode)}
+                  className={`w-full flex items-center justify-between p-3 rounded-xl border transition-all ${darkMode ? 'bg-slate-800 border-slate-700 text-[#8DC63F] hover:bg-slate-700' : 'bg-gray-50 border-gray-200 text-gray-700 hover:bg-gray-100'}`}
+                >
+                  <div className="flex items-center gap-3">
+                    {darkMode ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
+                    <span className="text-sm font-bold">{darkMode ? 'Alternar para Modo Claro' : 'Alternar para Modo Escuro'}</span>
+                  </div>
+                  <div className={`w-10 h-5 rounded-full relative transition-all ${darkMode ? 'bg-[#8DC63F]' : 'bg-gray-300'}`}>
+                    <div className={`absolute top-1 w-3 h-3 rounded-full bg-white transition-all ${darkMode ? 'left-6' : 'left-1'}`} />
+                  </div>
+                </button>
+              </div>
             </div>
-          </div>
-        </section>
+          </section>
+        )}
+
+        {/* Robot Control Section */}
+        {showRpaAutomation && (
+          <section className={`lg:col-span-3 p-8 rounded-3xl border ${darkMode ? 'bg-slate-900 border-slate-800' : 'bg-white border-gray-200 shadow-xl'}`}>
+            <div className="flex items-center gap-3 mb-8">
+              <div className={`p-2 rounded-xl ${darkMode ? 'bg-indigo-500/20' : 'bg-indigo-500/10'}`}>
+                <Terminal className="w-6 h-6 text-indigo-500" />
+              </div>
+              <div>
+                <h3 className={`text-lg font-black uppercase tracking-tight ${darkMode ? 'text-white' : 'text-gray-900'}`}>
+                  Automação RPA (Bot SAP)
+                </h3>
+                <p className="text-xs opacity-60">Gerencie a lista de materiais para captura automática e sincronize resultados.</p>
+              </div>
+            </div>
+            <RobotControl />
+          </section>
+        )}
 
         {/* Column Mapping */}
         <section className={`lg:col-span-2 p-6 rounded-2xl border ${darkMode ? 'bg-slate-900 border-slate-800' : 'bg-white border-gray-200'}`}>
@@ -887,14 +993,24 @@ const SettingsPage: React.FC = () => {
 
               {localNotificationSettings.emailAlerts && (
                 <div className="animate-in slide-in-from-top-2 duration-200">
-                  <label className={`block text-xs font-bold mb-2 ${darkMode ? 'text-slate-400' : 'text-gray-600'}`}>E-mail do Gestor</label>
+                  <div className="flex justify-between items-center mb-2">
+                    <label className={`block text-xs font-bold ${darkMode ? 'text-slate-400' : 'text-gray-600'}`}>E-mail do Gestor</label>
+                    {localNotificationSettings.managerEmail && !localNotificationSettings.managerEmail.toLowerCase().endsWith('@natulab.com.br') && (
+                      <span className="text-[10px] font-bold text-red-500 animate-pulse">Domínio @natulab.com.br obrigatório</span>
+                    )}
+                  </div>
                   <input 
                     type="email" 
                     value={localNotificationSettings.managerEmail}
                     onChange={(e) => setLocalNotificationSettings({...localNotificationSettings, managerEmail: e.target.value})}
-                    placeholder="gestor@empresa.com"
-                    className={`w-full p-3 border rounded-xl text-sm transition-all focus:outline-none focus:ring-2 ${darkMode ? 'bg-slate-800 border-slate-700 text-slate-100 focus:ring-[#8DC63F]/50' : 'border-gray-200 focus:ring-[#8DC63F]/50'}`}
+                    placeholder="gestor@natulab.com.br"
+                    className={`w-full p-3 border rounded-xl text-sm transition-all focus:outline-none focus:ring-2 ${
+                      localNotificationSettings.managerEmail && !localNotificationSettings.managerEmail.toLowerCase().endsWith('@natulab.com.br')
+                        ? 'border-red-500 focus:ring-red-500/50'
+                        : darkMode ? 'bg-slate-800 border-slate-700 text-slate-100 focus:ring-[#8DC63F]/50' : 'border-gray-200 focus:ring-[#8DC63F]/50'
+                    }`}
                   />
+                  <p className="mt-2 text-[10px] text-slate-500 italic">Os alertas serão bloqueados se o domínio for inválido.</p>
                 </div>
               )}
             </div>
@@ -1071,6 +1187,29 @@ const SettingsPage: React.FC = () => {
           </section>
         )}
       </div>
+
+      {/* Data Maintenance Section */}
+      <section className={`p-6 rounded-2xl border ${darkMode ? 'bg-slate-900 border-slate-800' : 'bg-white border-gray-200'}`}>
+        <div className="flex items-center justify-between gap-6">
+          <div className="flex items-center gap-4">
+            <div className={`p-3 rounded-xl ${darkMode ? 'bg-red-500/10 text-red-400' : 'bg-red-50 text-red-600'}`}>
+              <Trash2 className="w-6 h-6" />
+            </div>
+            <div>
+              <h4 className={`font-bold ${darkMode ? 'text-white' : 'text-gray-900'}`}>Manutenção de Dados</h4>
+              <p className={`text-xs ${darkMode ? 'text-slate-400' : 'text-gray-600'}`}>
+                Limpe o armazenamento local do navegador para resetar o programa ou resolver problemas de sincronização.
+              </p>
+            </div>
+          </div>
+          <button 
+            onClick={handleClearLocalStorage}
+            className={`flex items-center gap-2 px-6 py-3 rounded-xl font-bold bg-red-500 text-white hover:bg-red-600 transition-all shadow-lg shadow-red-500/20`}
+          >
+            <RotateCcw className="w-5 h-5" /> Limpar Armazenamento Local
+          </button>
+        </div>
+      </section>
 
       {/* Hidden DEV Trigger */}
       <button 

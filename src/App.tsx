@@ -11,6 +11,8 @@ import SettingsPage from './pages/Settings';
 import HelpPage from './pages/Help';
 import PriceSimulatorPage from './pages/PriceSimulator';
 import MovementsPage from './pages/Movements';
+import MaterialDashboardPage from './pages/MaterialDashboard';
+import RecipesPage from './pages/Recipes';
 import AITermsPage from './pages/AITerms';
 import { getDeviceId } from './utils/deviceUtils';
 import { ShieldAlert } from 'lucide-react';
@@ -66,7 +68,9 @@ const App: React.FC = () => {
               } />
               <Route path="history" element={<HistoryPage />} />
               <Route path="movements" element={<MovementsPage />} />
+              <Route path="material-dashboard" element={<MaterialDashboardPage />} />
               <Route path="simulator" element={<PriceSimulatorPage />} />
+              <Route path="recipes" element={<RecipesPage />} />
               <Route path="settings" element={<SettingsPage />} />
               <Route path="help" element={<HelpPage />} />
               <Route path="ai-terms" element={<AITermsPage />} />
