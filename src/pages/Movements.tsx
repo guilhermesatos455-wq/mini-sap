@@ -1,4 +1,5 @@
 import React, { useState, useMemo, useRef, useEffect } from 'react';
+import * as XLSX from 'xlsx';
 import { 
   Box, 
   ArrowUpRight, 
@@ -232,6 +233,54 @@ const MovementsPage: React.FC = () => {
     setCurrentPageRecon(1);
   };
 
+  const exportToExcel = () => {
+    // 1. Prepare raw data
+    const rawData = filteredMovements.map(m => ({
+      'Material': m.material,
+      'Descrição material': m.description,
+      'Tipo de material': m.movementType,
+      'Saldo inicial 30/08/2025': 0, // Placeholder
+      'PRODUÇÃO/COMPRAS': m.quantity > 0 ? m.quantity : 0,
+      'DEVOLUÇÃO/OUTRAS ENTRADAS': 0,
+      'AJUSTE INVENTARIO ENTRADA': 0,
+      'TOTAL ENTRADAS': m.quantity > 0 ? m.quantity : 0,
+      'AJUSTE INVENTARIO SAÍDA': 0,
+      'OUTRAS SAÍDA/DEVOLUÇÃO': 0,
+      'Bonificação': 0,
+      'SAÍDAS (VENDAS)': 0,
+      'SAÍDAS (Perda)': 0,
+      'REPROCESSOS/REQUISIÇÃO': m.quantity < 0 ? Math.abs(m.quantity) : 0,
+      'TOTAL SAIDA': m.quantity < 0 ? Math.abs(m.quantity) : 0,
+      'ESTOQUE MOVIMENTAÇÃO DO MÊS': m.quantity,
+      'ESTOQUE INFORMADO SAP': 0,
+      'CHECK': 0
+    }));
+
+    // 2. Create worksheet
+    const worksheet = XLSX.utils.json_to_sheet([]);
+
+    // 3. Add Title "NATULAB"
+    XLSX.utils.sheet_add_aoa(worksheet, [['NATULAB']], { origin: 'B1' });
+    
+    // 4. Add Headers starting row 5 (to allow for space above)
+    const headers = [
+      'Material', 'Descrição material', 'Descrição Tipo de material', 'Saldo inicial 30/08/2025', 
+      'PRODUÇÃO/COMPRAS', 'DEVOLUÇÃO/OUTRAS ENTRADAS', 'AJUSTE INVENTARIO ENTRADA', 'TOTAL ENTRADAS',
+      'AJUSTE INVENTARIO SAÍDA', 'OUTRAS SAÍDA/DEVOLUÇÃO', 'Bonificação', 'SAÍDAS (VENDAS)', 
+      'SAÍDAS (Perda)', 'REPROCESSOS/REQUISIÇÃO', 'TOTAL SAIDA', 'ESTOQUE MOVIMENTAÇÃO DO MÊS', 
+      'ESTOQUE INFORMADO SAP', 'CHECK'
+    ];
+    XLSX.utils.sheet_add_aoa(worksheet, [headers], { origin: 'A5' });
+
+    // 5. Add data
+    XLSX.utils.sheet_add_json(worksheet, rawData, { origin: 'A6', skipHeader: true });
+
+    // 6. Create workbook and add worksheet
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, 'Movimentações');
+    XLSX.writeFile(workbook, 'Movimentacoes_MB51_Formatado.xlsx');
+  };
+
   const reconciliationData = useMemo(() => {
     const materials: Record<string, any> = {};
     
@@ -304,6 +353,27 @@ const MovementsPage: React.FC = () => {
     );
   }, [movements, movementTypes, searchTerm, initialStockPositions, finalStockPositions]);
 
+  const columnTotals = useMemo(() => {
+    return reconciliationData.reduce((acc, m) => {
+      acc.initial += m.initial;
+      acc.prod += m.prod;
+      acc.dev += m.dev;
+      acc.adjIn += m.adjIn;
+      acc.totalIn += m.totalIn;
+      acc.adjOut += m.adjOut;
+      acc.otherOut += m.otherOut;
+      acc.bonif += m.bonif;
+      acc.sale += m.sale;
+      acc.loss += m.loss;
+      acc.req += m.req;
+      acc.totalOut += m.totalOut;
+      acc.subtotal += m.subtotal;
+      acc.finalStockReal += m.finalStockReal;
+      acc.difference += m.difference;
+      return acc;
+    }, { initial: 0, prod: 0, dev: 0, adjIn: 0, totalIn: 0, adjOut: 0, otherOut: 0, bonif: 0, sale: 0, loss: 0, req: 0, totalOut: 0, subtotal: 0, finalStockReal: 0, difference: 0 });
+  }, [reconciliationData]);
+
   const paginatedReconciliation = useMemo(() => {
     const start = (currentPageRecon - 1) * rowsPerPage;
     return reconciliationData.slice(start, start + rowsPerPage);
@@ -334,8 +404,8 @@ const MovementsPage: React.FC = () => {
         </div>
 
         <div className="flex items-center gap-3">
-          <button className={`flex items-center gap-2 px-4 py-2.5 rounded-2xl text-xs font-black uppercase tracking-widest transition-all ${darkMode ? 'bg-slate-800 text-slate-300 hover:bg-slate-700' : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50 shadow-sm'}`}>
-            <Download className="w-4 h-4" /> Exportar MB51
+          <button onClick={exportToExcel} className={`flex items-center gap-2 px-4 py-2.5 rounded-2xl text-xs font-black uppercase tracking-widest transition-all ${darkMode ? 'bg-slate-800 text-slate-300 hover:bg-slate-700' : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50 shadow-sm'}`}>
+            <Download className="w-4 h-4" /> Exportar para Excel
           </button>
           <button className="flex items-center gap-2 px-6 py-2.5 rounded-2xl bg-[#8DC63F] text-white text-xs font-black uppercase tracking-widest hover:bg-[#78AF32] transition-all shadow-lg shadow-[#8DC63F]/20">
             <Plus className="w-4 h-4" /> Novo Lançamento
@@ -861,6 +931,27 @@ const MovementsPage: React.FC = () => {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                    {/* Totals Row */}
+                    <tr className={`font-black ${darkMode ? 'bg-slate-800/50' : 'bg-slate-50'}`}>
+                      <td className="px-4 py-4 sticky left-0 z-10 bg-inherit text-[11px] border-r">TOTAL</td>
+                      <td className="px-4 py-4 text-center text-[11px] border-l">{columnTotals.initial.toLocaleString()}</td>
+                      <td className="px-4 py-4 text-center text-[11px]">{columnTotals.prod.toLocaleString()}</td>
+                      <td className="px-4 py-4 text-center text-[11px]">{columnTotals.dev.toLocaleString()}</td>
+                      <td className="px-4 py-4 text-center text-[11px]">{columnTotals.adjIn.toLocaleString()}</td>
+                      <td className="px-4 py-4 text-center text-[11px] text-blue-500 border-r">{columnTotals.totalIn.toLocaleString()}</td>
+                      <td className="px-4 py-4 text-center text-[11px] text-rose-500">{columnTotals.adjOut.toLocaleString()}</td>
+                      <td className="px-4 py-4 text-center text-[11px] text-rose-500">{columnTotals.otherOut.toLocaleString()}</td>
+                      <td className="px-4 py-4 text-center text-[11px] text-rose-500">{columnTotals.bonif.toLocaleString()}</td>
+                      <td className="px-4 py-4 text-center text-[11px] text-rose-500">{columnTotals.sale.toLocaleString()}</td>
+                      <td className="px-4 py-4 text-center text-[11px] text-rose-500">{columnTotals.loss.toLocaleString()}</td>
+                      <td className="px-4 py-4 text-center text-[11px] text-rose-500">{columnTotals.req.toLocaleString()}</td>
+                      <td className="px-4 py-4 text-center text-[11px] text-rose-600 border-r">{columnTotals.totalOut.toLocaleString()}</td>
+                      <td className="px-4 py-4 text-center text-[11px] text-amber-600">{columnTotals.subtotal.toLocaleString()}</td>
+                      <td className="px-4 py-4 text-center text-[11px] text-emerald-600">{columnTotals.finalStockReal.toLocaleString()}</td>
+                      <td className={`px-4 py-4 text-center text-[11px] ${Math.abs(columnTotals.difference) > 0.01 ? 'text-red-600' : 'text-emerald-600'}`}>
+                        {columnTotals.difference.toLocaleString()}
+                      </td>
+                    </tr>
                     {paginatedReconciliation.map(m => (
                       <tr key={m.material} className={`group transition-colors ${darkMode ? 'hover:bg-slate-800/20' : 'hover:bg-slate-50/50'}`}>
                         <td className="px-4 py-4 sticky left-0 z-10 transition-colors bg-white dark:bg-slate-900 group-hover:bg-slate-50 dark:group-hover:bg-slate-800">

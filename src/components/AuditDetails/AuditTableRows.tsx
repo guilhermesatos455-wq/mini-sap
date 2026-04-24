@@ -64,6 +64,8 @@ export const TableRowMemo = React.memo(({
   if (!div) return null;
 
   const isDivergencia = div && 'impactoFinanceiro' in div;
+  const isGroup = !!(div as any)._isGroupRoot;
+  const children = (div as any).children || [];
   const variacaoPerc = div.variacaoPerc || 0;
   const impactoFinanceiro = div.impactoFinanceiro || 0;
 
@@ -323,6 +325,84 @@ Identifique possíveis causas (ex: variação cambial, erro de lançamento, trib
           {div.tipo === 'acima do custo padrão' ? 'ACIMA' : 'ABAIXO'}
         </span>
       </div>
+
+      {isGroup && children.length > 0 && (
+        <div className="max-w-[1500px] mx-auto mt-8 relative">
+          <div className={`p-8 rounded-[3rem] border shadow-2xl overflow-hidden relative ${darkMode ? 'bg-slate-950 border-slate-800' : 'bg-white border-gray-100'}`}>
+            <div className={`absolute top-0 right-0 p-12 opacity-[0.03] pointer-events-none ${darkMode ? 'text-white' : 'text-black'}`}>
+               <Table className="w-64 h-64" />
+            </div>
+            
+            <div className="flex items-center justify-between mb-8 relative z-10">
+              <div className="flex items-center gap-4">
+                <div className={`p-4 rounded-2xl ${darkMode ? 'bg-brand-green/20 text-brand-green' : 'bg-brand-green/10 text-[#78AF32]'}`}>
+                  <ListChecks className="w-8 h-8" />
+                </div>
+                <div>
+                  <h4 className={`text-xs font-black uppercase tracking-[0.3em] ${darkMode ? 'text-slate-500' : 'text-slate-400'}`}>NFs Individuais no Bloco</h4>
+                  <p className="text-xl font-black italic opacity-90">Detalhamento por Nota Fiscal</p>
+                </div>
+              </div>
+              
+              <div className={`px-5 py-2.5 rounded-2xl border text-[10px] font-black uppercase tracking-widest ${darkMode ? 'bg-slate-900 border-slate-800 text-slate-400' : 'bg-gray-50 border-gray-100 text-gray-500'}`}>
+                {children.length} Encontros de Divergência
+              </div>
+            </div>
+
+            <div className="overflow-x-auto relative z-10 scrollbar-hide">
+              <table className="w-full text-left border-collapse">
+                <thead>
+                  <tr className={`text-[10px] font-black uppercase tracking-widest ${darkMode ? 'text-slate-600' : 'text-slate-300'}`}>
+                    <th className="pb-4 px-4">Nota Fiscal</th>
+                    <th className="pb-4 px-4">Empresa</th>
+                    <th className="pb-4 px-4">Fornecedor</th>
+                    <th className="pb-4 px-4">Data</th>
+                    <th className="pb-4 px-4 text-right">Quantidade</th>
+                    <th className="pb-4 px-4 text-right">V. Unit. NF</th>
+                    <th className="pb-4 px-4 text-right">V. Real SAP</th>
+                    <th className="pb-4 px-4 text-right">Variação %</th>
+                    <th className="pb-4 px-4 text-right">Impacto</th>
+                    <th className="pb-4 px-6 text-center">Status</th>
+                  </tr>
+                </thead>
+                <tbody className={`divide-y ${darkMode ? 'divide-slate-800' : 'divide-gray-50'}`}>
+                  {children.map((child: Divergencia) => (
+                    <tr key={child.id} className={`group/item transition-colors ${darkMode ? 'hover:bg-slate-900/50' : 'hover:bg-slate-50/50'}`}>
+                      <td className="py-4 px-4">
+                        <div className="flex items-center gap-2">
+                           <FileText className="w-3.5 h-3.5 text-brand-green opacity-40" />
+                           <span className="font-mono text-[11px] font-black">{child.numeroNF}</span>
+                        </div>
+                      </td>
+                      <td className="py-4 px-4 text-[10px] font-bold uppercase opacity-60 tracking-tighter">{child.empresa}</td>
+                      <td className="py-4 px-4">
+                        <div className="text-[10px] font-black truncate max-w-[140px]" title={child.fornecedor}>{child.fornecedor}</div>
+                      </td>
+                      <td className="py-4 px-4 text-[11px] font-mono opacity-50">{child.data ? new Date(child.data).toLocaleDateString('pt-BR') : '-'}</td>
+                      <td className="py-4 px-4 text-right font-black text-[11px] font-mono">{child.quantidade}</td>
+                      <td className="py-4 px-4 text-right font-black text-[11px] font-mono">{formatoMoeda.format(child.precoEfetivo)}</td>
+                      <td className="py-4 px-4 text-right font-black text-[11px] font-mono opacity-50">{formatoMoeda.format(child.custoPadrao)}</td>
+                      <td className="py-4 px-4 text-right">
+                        <span className={`px-2 py-0.5 rounded-md text-[10px] font-black ${child.variacaoPerc > 0 ? 'bg-red-500/10 text-red-500' : 'bg-brand-green/10 text-brand-green'}`}>
+                          {child.variacaoPerc.toFixed(1)}%
+                        </span>
+                      </td>
+                      <td className="py-4 px-4 text-right font-black text-[11px] font-mono italic">
+                        {formatoMoeda.format(child.impactoFinanceiro)}
+                      </td>
+                      <td className="py-4 px-6">
+                        <div className="flex justify-center">
+                           <StatusBadge status={child.status || 'Pendente'} darkMode={darkMode} />
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 });
