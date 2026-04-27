@@ -191,6 +191,7 @@ export interface StockColumnMapping {
   material: number;
   description: number;
   plant: number;
-  quantity: number;
+  initialQuantity: number;
+  finalQuantity: number;
   startRow: number;
 }

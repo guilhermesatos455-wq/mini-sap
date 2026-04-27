@@ -654,9 +654,10 @@ export const AuditProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     return safeLocalStorageGet('miniSapStockMapping', {
       material: 0,
       description: 1,
-      plant: 4,
-      quantity: 11,
-      startRow: 7
+      plant: 7,
+      initialQuantity: 14,
+      finalQuantity: 14,
+      startRow: 0
     });
   });
 
