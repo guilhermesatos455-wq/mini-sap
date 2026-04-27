@@ -124,7 +124,7 @@ self.onmessage = async (e) => {
           const row = data[i];
           if (!row || row.length === 0) continue;
 
-          const material = idxMat >= 0 ? String(row[idxMat] || '').trim() : '';
+          const material = idxMat >= 0 ? String(row[idxMat] || '').trim().replace(/^0+/, '') : '';
           if (!material) continue;
 
           // 1. Materiais que começam com 10 ou 49 não geram estoque
@@ -139,7 +139,7 @@ self.onmessage = async (e) => {
 
           // Filtrar por Centro se especificado
           const currentPlant = idxPlant >= 0 ? String(row[idxPlant] || '').trim() : '';
-          if (plant && currentPlant && currentPlant !== plant) continue;
+          if (plant && currentPlant && !currentPlant.startsWith(plant)) continue;
 
           const docNumber = idxDoc >= 0 ? String(row[idxDoc] || '').trim() : '';
           const date = idxDate >= 0 ? parseExcelDate(row[idxDate]) : null;
@@ -198,10 +198,10 @@ self.onmessage = async (e) => {
           if (!row || !row[idxMat]) continue;
 
           const currentPlant = String(row[idxPlant] || '').trim();
-          if (plant && currentPlant && currentPlant !== plant) continue;
+          if (plant && currentPlant && !currentPlant.startsWith(plant)) continue;
 
           const item = {
-            material: String(row[idxMat] || '').trim(),
+            material: String(row[idxMat] || '').trim().replace(/^0+/, ''),
             description: String(row[idxDesc] || '').trim(),
             plant: currentPlant,
             quantity: parseNumber(row[idxQtd])
