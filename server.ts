@@ -6,6 +6,18 @@ import { fileURLToPath } from 'url';
 import nodemailer from 'nodemailer';
 import dotenv from 'dotenv';
 import rateLimit from 'express-rate-limit';
+import admin from 'firebase-admin';
+
+// Initialize firebase admin
+// Note: This assumes default credentials are available in the Cloud Run environment
+try {
+  admin.initializeApp({
+    credential: admin.credential.applicationDefault()
+  });
+} catch (e) {
+  console.error("Firebase Admin initialization failed:", e);
+}
+
 
 dotenv.config();
 

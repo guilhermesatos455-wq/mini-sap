@@ -163,7 +163,7 @@ self.onmessage = (e) => {
     const startRowCkm3 = 1;
     const headersCKM3 = dataCKM3[0] || [];
     const idxCkm3Mat = fuzzyDetect(headersCKM3, ['Material', 'Cod. Material', 'Produto', 'Cod. Mat'], mapColunas.ckm3Mat || 'C');
-    const idxCkm3Custo = fuzzyDetect(headersCKM3, ['Preço', 'Custo', 'PMM', 'Unitário', 'Valor Unit'], mapColunas.ckm3Custo || 'L');
+    const idxCkm3Custo = XLSX.utils.decode_col('L');
     const idxCkm3Qtd = fuzzyDetect(headersCKM3, ['Quantidade', 'Estoque', 'Qtd', 'Saldo'], mapColunas.ckm3Qtd || 'I');
     const idxCkm3Centro = fuzzyDetect(headersCKM3, ['Centro', 'Planta', 'Plant', 'Local'], mapColunas.ckm3Centro || 'C');
     const idxCkm3Desc = fuzzyDetect(headersCKM3, ['Descrição', 'Nome', 'Texto', 'Description', 'Material Desc'], mapColunas.ckm3Desc || 'D');

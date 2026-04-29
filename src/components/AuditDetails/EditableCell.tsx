@@ -5,7 +5,7 @@ import Tooltip from '../Tooltip';
 interface EditableCellProps {
   value: any;
   onSave: (value: any) => void;
-  type?: 'text' | 'number' | 'currency' | 'date';
+  type?: 'text' | 'number' | 'currency' | 'date' | 'precoMedio' | 'valorCKM3';
   darkMode: boolean;
   className?: string;
   formatoMoeda: Intl.NumberFormat;
@@ -17,11 +17,18 @@ export const EditableCell = ({ value, onSave, type = 'text', darkMode, className
   const [editValue, setEditValue] = useState(value);
   const [error, setError] = useState<string | null>(null);
 
+  const formatter = useMemo(() => {
+    if (type === 'currency') return formatoMoeda;
+    if (type === 'precoMedio') return new Intl.NumberFormat('pt-BR', { minimumFractionDigits: 3, maximumFractionDigits: 3 });
+    if (type === 'valorCKM3') return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' });
+    return null;
+  }, [type, formatoMoeda]);
+
   const handleSave = () => {
     if (disabled) return;
     let finalValue = editValue;
-    if (type === 'number') {
-      const rawVal = String(editValue).replace(',', '.');
+    if (type === 'number' || type === 'precoMedio' || type === 'valorCKM3') {
+      const rawVal = String(editValue).replace(',', '.').replace(/[^\d.-]/g, '');
       finalValue = parseFloat(rawVal);
       if (isNaN(finalValue)) {
         setError('Inválido');
@@ -75,10 +82,10 @@ export const EditableCell = ({ value, onSave, type = 'text', darkMode, className
   }
 
   const displayValue = useMemo(() => {
-    if (type === 'currency') return formatoMoeda.format(value);
+    if (formatter) return formatter.format(value || 0);
     if (type === 'date' && value) return new Date(value).toLocaleDateString('pt-BR');
     return value;
-  }, [type, value, formatoMoeda]);
+  }, [type, value, formatter]);
 
   return (
     <Tooltip content={disabled ? "Edição desabilitada para este item" : "Clique para editar"} darkMode={darkMode}>

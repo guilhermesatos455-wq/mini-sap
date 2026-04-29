@@ -57,7 +57,6 @@ export interface Divergencia {
   suggestedCause?: string;
   suggestedTCodes?: string[];
   suggestedTCodeAction?: string;
-  suggestedAction?: string;
   appliedRecipes?: string[]; // IDs das receitas que foram disparadas para este item
   aprovadoPor?: { nome: string; email: string; data: string } | null;
   rejeitadoPor?: { nome: string; email: string; data: string; motivo: string } | null;
@@ -67,7 +66,7 @@ export interface Divergencia {
 
 export interface AuditRule {
   id: string;
-  field: keyof Divergencia | string;
+  field: keyof Divergencia | string;//usar os operadoes aritimenticos 
   operator: '>' | '<' | '==' | '!=' | 'contains' | 'in' | 'matches';
   value: any;
   logicalOperator?: 'AND' | 'OR';
@@ -185,13 +184,4 @@ export interface MovementColumnMapping {
   docNumber?: number;
   plant?: number;
   user?: number;
-}
-
-export interface StockColumnMapping {
-  material: number;
-  description: number;
-  plant: number;
-  initialQuantity: number;
-  finalQuantity: number;
-  startRow: number;
 }

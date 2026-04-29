@@ -201,7 +201,7 @@ const DashboardPage: React.FC = () => {
     const foundAlerts: any[] = [];
     
     resultado.divergencias.forEach((d: any) => {
-      // Impacto financeiro alto
+      // Impacto financeiro alto alto para um caraia
       if (d.tipo === 'acima do custo padrão' && d.impactoFinanceiro >= alertSettings.impactoMinimoAlerta) {
         foundAlerts.push({
           id: d.id,
@@ -212,7 +212,7 @@ const DashboardPage: React.FC = () => {
         });
       }
       
-      // Variação percentual alta
+      // Variação percentual alta que so a porra
       if (Math.abs(d.variacaoPerc) >= alertSettings.variacaoMinimaAlerta) {
         foundAlerts.push({
           id: d.id,
@@ -223,7 +223,7 @@ const DashboardPage: React.FC = () => {
         });
       }
 
-      // Fornecedor crítico
+      // Fornecedor como valor crítico eu em estado de risco
       if (alertSettings.fornecedoresCriticos.some(s => d.fornecedor.includes(s))) {
         foundAlerts.push({
           id: d.id,

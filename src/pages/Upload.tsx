@@ -31,6 +31,7 @@ const UploadPage: React.FC = () => {
     dataFim, setDataFim,
     mapColunas, setMapColunas,
     iniciarProcessamento,
+    filterHideZeroes, setFilterHideZeroes,
     addToast
   } = useAudit();
 
@@ -164,6 +165,18 @@ const UploadPage: React.FC = () => {
                 onChange={(e) => setDataFim(e.target.value)}
                 className={`w-full p-3 border rounded-xl text-sm transition-all focus:outline-none focus:ring-2 ${darkMode ? 'bg-slate-800 border-slate-700 text-slate-100 focus:ring-[#8DC63F]/50' : 'border-gray-200 focus:ring-[#8DC63F]/50'}`}
               />
+            </div>
+            <div className="flex items-center gap-2">
+              <label htmlFor="filterHideZeroes" className={`flex items-center gap-2 text-xs font-bold cursor-pointer ${darkMode ? 'text-slate-400' : 'text-gray-600'}`}>
+                <input 
+                  id="filterHideZeroes"
+                  type="checkbox" 
+                  checked={filterHideZeroes}
+                  onChange={(e) => setFilterHideZeroes(e.target.checked)}
+                  className="w-4 h-4 rounded text-[#8DC63F] focus:ring-[#8DC63F]"
+                />
+                Ocultar Zeros automáticos
+              </label>
             </div>
           </div>
 

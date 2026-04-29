@@ -11,12 +11,12 @@ import SettingsPage from './pages/Settings';
 import HelpPage from './pages/Help';
 import PriceSimulatorPage from './pages/PriceSimulator';
 import MovementsPage from './pages/Movements';
-import GeminiMovementsPage from './pages/GeminiMovements';
 import MaterialDashboardPage from './pages/MaterialDashboard';
 import RecipesPage from './pages/Recipes';
 import AITermsPage from './pages/AITerms';
 import { getDeviceId } from './utils/deviceUtils';
 import { ShieldAlert } from 'lucide-react';
+import ChatBubble from './components/ChatBubble';
 
 const BanGuard: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { bannedDevices } = useAudit();
@@ -58,26 +58,28 @@ const App: React.FC = () => {
     <AuditProvider>
       <BanGuard>
         <Router>
-          <Routes>
-            <Route path="/" element={<Layout />}>
-              <Route index element={<UploadPage />} />
-              <Route path="dashboard" element={<DashboardPage />} />
-              <Route path="details" element={
-                <ErrorBoundary>
-                  <AuditDetailsPage />
-                </ErrorBoundary>
-              } />
-              <Route path="history" element={<HistoryPage />} />
-              <Route path="movements" element={<MovementsPage />} />
-              <Route path="gemini-movements" element={<GeminiMovementsPage />} />
-              <Route path="material-dashboard" element={<MaterialDashboardPage />} />
-              <Route path="simulator" element={<PriceSimulatorPage />} />
-              <Route path="recipes" element={<RecipesPage />} />
-              <Route path="settings" element={<SettingsPage />} />
-              <Route path="help" element={<HelpPage />} />
-              <Route path="ai-terms" element={<AITermsPage />} />
-            </Route>
-          </Routes>
+          <ErrorBoundary>
+            <Routes>
+              <Route path="/" element={<Layout />}>
+                <Route index element={<UploadPage />} />
+                <Route path="dashboard" element={<DashboardPage />} />
+                <Route path="details" element={
+                  <ErrorBoundary>
+                    <AuditDetailsPage />
+                  </ErrorBoundary>
+                } />
+                <Route path="history" element={<HistoryPage />} />
+                <Route path="movements" element={<MovementsPage />} />
+                <Route path="material-dashboard" element={<MaterialDashboardPage />} />
+                <Route path="simulator" element={<PriceSimulatorPage />} />
+                <Route path="recipes" element={<RecipesPage />} />
+                <Route path="settings" element={<SettingsPage />} />
+                <Route path="help" element={<HelpPage />} />
+                <Route path="ai-terms" element={<AITermsPage />} />
+              </Route>
+            </Routes>
+            <ChatBubble />
+          </ErrorBoundary>
         </Router>
       </BanGuard>
     </AuditProvider>

@@ -38,7 +38,6 @@ export const OCRUpload: React.FC<OCRUploadProps> = ({ darkMode, onExtractData, p
       
       // Heuristic extraction for common NF fields
       // This is a simple version, in a real world scenario you'd use a regex or a specialized model
-      const lines = text.split('\n');
       
       const extractedData = {
         numeroNF: text.match(/NF[ -]*([0-9.]+)/i)?.[1] || '',
@@ -91,7 +90,7 @@ export const OCRUpload: React.FC<OCRUploadProps> = ({ darkMode, onExtractData, p
         )}
 
         {status && !error && (
-          <div className={`p-4 rounded-2xl text-xs font-bold flex items-center gap-3 ${darkMode ? 'bg-brand-green/10 text-brand-green' : 'bg-brand-green/5 text-brand-green'}`}>
+          <div className={`p-4 rounded-2xl text-xs font-bold flex items-center gap-3 ${darkMode ? 'bg-lime-500/10 text-lime-400' : 'bg-lime-50 text-lime-600'}`}>
             {isProcessing ? <Loader2 className="w-5 h-5 animate-spin" /> : <CheckCircle2 className="w-5 h-5" />}
             {status}
           </div>

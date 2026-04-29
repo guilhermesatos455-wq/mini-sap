@@ -1,5 +1,4 @@
 import React, { useState, useMemo, useRef, useEffect } from 'react';
-import * as XLSX from 'xlsx';
 import { 
   Box, 
   ArrowUpRight, 
@@ -58,8 +57,6 @@ const MovementsPage: React.FC = () => {
     setSelectedPlant,
     movementColumnMapping,
     setMovementColumnMapping,
-    stockColumnMapping,
-    setStockColumnMapping,
     isProcessingMovements,
     movementProcessingStatus,
     movementProgressPercent,
@@ -84,9 +81,7 @@ const MovementsPage: React.FC = () => {
 
   useEffect(() => {
     const setupDragScroll = (ref: React.RefObject<HTMLDivElement>) => {
-      const parent = ref.current;
-      const el = parent?.querySelector('.overflow-x-auto') as HTMLDivElement;
-      
+      const el = ref.current;
       if (!el) return;
 
       let isDown = false;
@@ -237,159 +232,77 @@ const MovementsPage: React.FC = () => {
     setCurrentPageRecon(1);
   };
 
-  const exportToExcel = () => {
-    // 1. Prepare aggregated data
-    const rawData = reconciliationData.map(m => ({
-      '': '',
-      'Material': m.material,
-      'Descrição material': m.description,
-      'Descrição Tipo de material': 'Material',
-      'Saldo inicial 30/08/2025': m.initial,
-      'PRODUÇÃO/COMPRAS': m.prod,
-      'DEVOLUÇÃO/OUTRAS ENTRADAS': m.dev,
-      'AJUSTE INVENTARIO ENTRADA': m.adjIn,
-      'TOTAL ENTRADAS': m.initial + m.prod + m.dev + m.adjIn,
-      'AJUSTE INVENTARIO SAÍDA': m.adjOut,
-      'OUTRAS SAÍDA/DEVOLUÇÃO': m.otherOut,
-      'Bonificação': m.bonif,
-      'SAÍDAS (VENDAS)': m.sale,
-      'SAÍDAS (Perda)': m.loss,
-      'REPROCESSOS/REQUISIÇÃO': m.req,
-      'TOTAL SAIDA': m.adjOut + m.otherOut + m.bonif + m.sale + m.loss + m.req,
-      'ESTOQUE MOVIMENTAÇÃO DO MÊS': m.subtotal,
-      'ESTOQUE INFORMADO SAP': m.finalStockReal,
-      'CHECK': m.difference
-    }));
-
-    // 2. Create worksheet
-    const worksheet = XLSX.utils.json_to_sheet([]);
-
-    // 3. Add Title "NATULAB"
-    XLSX.utils.sheet_add_aoa(worksheet, [['NATULAB']], { origin: 'B1' });
-    
-    // 4. Add Headers starting row 5 (to allow for space above)
-    const headers = [
-      '', 'Material', 'Descrição material', 'Descrição Tipo de material', 'Saldo inicial 30/08/2025', 
-      'PRODUÇÃO/COMPRAS', 'DEVOLUÇÃO/OUTRAS ENTRADAS', 'AJUSTE INVENTARIO ENTRADA', 'TOTAL ENTRADAS',
-      'AJUSTE INVENTARIO SAÍDA', 'OUTRAS SAÍDA/DEVOLUÇÃO', 'Bonificação', 'SAÍDAS (VENDAS)', 
-      'SAÍDAS (Perda)', 'REPROCESSOS/REQUISIÇÃO', 'TOTAL SAIDA', 'ESTOQUE MOVIMENTAÇÃO DO MÊS', 
-      'ESTOQUE INFORMADO SAP', 'CHECK'
-    ];
-    XLSX.utils.sheet_add_aoa(worksheet, [headers], { origin: 'A5' });
-
-    // 5. Add data
-    XLSX.utils.sheet_add_json(worksheet, rawData, { origin: 'A6', skipHeader: true });
-
-    // 6. Create workbook and add worksheet
-    const workbook = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(workbook, worksheet, 'Movimentações');
-    XLSX.writeFile(workbook, 'Movimentacoes_MB51_Formatado.xlsx');
-  };
-
   const reconciliationData = useMemo(() => {
     const materials: Record<string, any> = {};
     
-    // Função para limpar o código do material (remove zeros à esquerda e espaços em branco)
-    const normalizeMaterial = (mat: any) => String(mat || '').replace(/^0+/, '').trim();
-
     const getBase = (m: any) => ({
-      material: normalizeMaterial(m.material),
-      description: m.description || '',
-      initial: 0, prod: 0, dev: 0, adjIn: 0, adjOut: 0, 
-      otherOut: 0, bonif: 0, sale: 0, loss: 0, req: 0, finalStockReal: 0 
+      material: m.material,
+      description: m.description,
+      initial: 0,
+      prod: 0, // G8
+      dev: 0, // H8
+      adjIn: 0, // I8
+      adjOut: 0, // K8
+      otherOut: 0, // L8
+      bonif: 0, // M8
+      sale: 0, // N8
+      loss: 0, // O8
+      req: 0, // P8
+      finalStockReal: 0 // S8
     });
 
-    // 1. Processar Estoque Inicial
     initialStockPositions.forEach(p => {
-      const matKey = normalizeMaterial(p.material);
-      if (!matKey) return; // Ignora linhas em branco
-      
-      if (!materials[matKey]) materials[matKey] = getBase(p);
-      // Força a conversão para número para evitar NaN e falhas de soma
-      materials[matKey].initial += (Number(p.quantity) || 0);
+      if (!materials[p.material]) materials[p.material] = getBase(p);
+      materials[p.material].initial = p.quantity;
     });
 
-    // 2. Processar Estoque Final
     finalStockPositions.forEach(p => {
-      const matKey = normalizeMaterial(p.material);
-      if (!matKey) return;
-      
-      if (!materials[matKey]) materials[matKey] = getBase(p);
-      materials[matKey].finalStockReal += (Number(p.quantity) || 0);
+      if (!materials[p.material]) materials[p.material] = getBase(p);
+      materials[p.material].finalStockReal = p.quantity;
     });
 
-    // 3. Processar Movimentações MB51
     movements.forEach(m => {
-      const matKey = normalizeMaterial(m.material);
-      if (!matKey) return;
-
-      if (!materials[matKey]) materials[matKey] = getBase(m);
+      if (!materials[m.material]) materials[m.material] = getBase(m);
       
       const type = movementTypes.find(t => t.code === m.movementType);
       if (type) {
         let category = type.category;
 
+        // Lógica Dinâmica para códigos específicos
         if (['309', '325', '321'].includes(m.movementType)) {
           category = m.quantity >= 0 ? 'ADJUSTMENT_ENTRY' : 'ADJUSTMENT_EXIT';
         }
 
         if (category) {
-          const qty = Number(m.quantity) || 0;
+          const qty = m.quantity;
           switch (category) {
-            case 'INITIAL_STOCK': if (initialStockPositions.length === 0) materials[matKey].initial += qty; break;
-            case 'PRODUCTION_PURCHASE': materials[matKey].prod += qty; break;
-            case 'RETURN_ENTRY': materials[matKey].dev += qty; break;
-            case 'ADJUSTMENT_ENTRY': materials[matKey].adjIn += qty; break;
-            
-            // Usando '-= qty' para que estornos positivos (mov. de anulação) abatam das saídas
-            case 'ADJUSTMENT_EXIT': materials[matKey].adjOut -= qty; break;
-            case 'OTHER_EXIT': materials[matKey].otherOut -= qty; break;
-            case 'BONIFICATION': materials[matKey].bonif -= qty; break;
-            case 'SALE': materials[matKey].sale -= qty; break;
-            case 'LOSS': materials[matKey].loss -= qty; break;
-            case 'REQUISITION': materials[matKey].req -= qty; break;
-            
-            case 'FINAL_STOCK': if (finalStockPositions.length === 0) materials[matKey].finalStockReal += qty; break;
+            case 'INITIAL_STOCK': if (initialStockPositions.length === 0) materials[m.material].initial += qty; break;
+            case 'PRODUCTION_PURCHASE': materials[m.material].prod += qty; break;
+            case 'RETURN_ENTRY': materials[m.material].dev += qty; break;
+            case 'ADJUSTMENT_ENTRY': materials[m.material].adjIn += qty; break;
+            case 'ADJUSTMENT_EXIT': materials[m.material].adjOut += Math.abs(qty); break; // Always use absolute for subtraction later
+            case 'OTHER_EXIT': materials[m.material].otherOut += Math.abs(qty); break;
+            case 'BONIFICATION': materials[m.material].bonif += Math.abs(qty); break;
+            case 'SALE': materials[m.material].sale += Math.abs(qty); break;
+            case 'LOSS': materials[m.material].loss += Math.abs(qty); break;
+            case 'REQUISITION': materials[m.material].req += Math.abs(qty); break;
+            case 'FINAL_STOCK': if (finalStockPositions.length === 0) materials[m.material].finalStockReal += qty; break;
           }
         }
       }
     });
 
     return Object.values(materials).map((m: any) => {
-      const totalIn = m.initial + m.prod + m.dev + m.adjIn; 
-      const totalOut = m.adjOut + m.otherOut + m.bonif + m.sale + m.loss + m.req; 
-      const subtotal = totalIn - totalOut; 
-      
-      // Arredondamento para 3 casas decimais para matar o lixo de memória de float do JS
-      const difference = Math.round((subtotal - m.finalStockReal) * 1000) / 1000;
-      
+      const totalIn = m.initial + m.prod + m.dev + m.adjIn; // J8
+      const totalOut = m.adjOut + m.otherOut + m.bonif + m.sale + m.loss + m.req; // Q8
+      const subtotal = totalIn - totalOut; // R8 (Assuming out is positive mag)
+      const difference = subtotal - m.finalStockReal; // T8
       return { ...m, totalIn, totalOut, subtotal, difference };
     }).filter((m: any) => 
       m.material.toLowerCase().includes(searchTerm.toLowerCase()) || 
       m.description.toLowerCase().includes(searchTerm.toLowerCase())
     );
   }, [movements, movementTypes, searchTerm, initialStockPositions, finalStockPositions]);
-
-  const columnTotals = useMemo(() => {
-    return reconciliationData.reduce((acc, m) => {
-      acc.initial += m.initial;
-      acc.prod += m.prod;
-      acc.dev += m.dev;
-      acc.adjIn += m.adjIn;
-      acc.totalIn += m.totalIn;
-      acc.adjOut += m.adjOut;
-      acc.otherOut += m.otherOut;
-      acc.bonif += m.bonif;
-      acc.sale += m.sale;
-      acc.loss += m.loss;
-      acc.req += m.req;
-      acc.totalOut += m.totalOut;
-      acc.subtotal += m.subtotal;
-      acc.finalStockReal += m.finalStockReal;
-      acc.difference += m.difference;
-      return acc;
-    }, { initial: 0, prod: 0, dev: 0, adjIn: 0, totalIn: 0, adjOut: 0, otherOut: 0, bonif: 0, sale: 0, loss: 0, req: 0, totalOut: 0, subtotal: 0, finalStockReal: 0, difference: 0 });
-  }, [reconciliationData]);
 
   const paginatedReconciliation = useMemo(() => {
     const start = (currentPageRecon - 1) * rowsPerPage;
@@ -421,8 +334,8 @@ const MovementsPage: React.FC = () => {
         </div>
 
         <div className="flex items-center gap-3">
-          <button onClick={exportToExcel} className={`flex items-center gap-2 px-4 py-2.5 rounded-2xl text-xs font-black uppercase tracking-widest transition-all ${darkMode ? 'bg-slate-800 text-slate-300 hover:bg-slate-700' : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50 shadow-sm'}`}>
-            <Download className="w-4 h-4" /> Exportar para Excel
+          <button className={`flex items-center gap-2 px-4 py-2.5 rounded-2xl text-xs font-black uppercase tracking-widest transition-all ${darkMode ? 'bg-slate-800 text-slate-300 hover:bg-slate-700' : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50 shadow-sm'}`}>
+            <Download className="w-4 h-4" /> Exportar MB51
           </button>
           <button className="flex items-center gap-2 px-6 py-2.5 rounded-2xl bg-[#8DC63F] text-white text-xs font-black uppercase tracking-widest hover:bg-[#78AF32] transition-all shadow-lg shadow-[#8DC63F]/20">
             <Plus className="w-4 h-4" /> Novo Lançamento
@@ -948,27 +861,6 @@ const MovementsPage: React.FC = () => {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-                    {/* Totals Row */}
-                    <tr className={`font-black ${darkMode ? 'bg-slate-800/50' : 'bg-slate-50'}`}>
-                      <td className="px-4 py-4 sticky left-0 z-10 bg-inherit text-[11px] border-r">TOTAL</td>
-                      <td className="px-4 py-4 text-center text-[11px] border-l">{columnTotals.initial.toLocaleString()}</td>
-                      <td className="px-4 py-4 text-center text-[11px]">{columnTotals.prod.toLocaleString()}</td>
-                      <td className="px-4 py-4 text-center text-[11px]">{columnTotals.dev.toLocaleString()}</td>
-                      <td className="px-4 py-4 text-center text-[11px]">{columnTotals.adjIn.toLocaleString()}</td>
-                      <td className="px-4 py-4 text-center text-[11px] text-blue-500 border-r">{columnTotals.totalIn.toLocaleString()}</td>
-                      <td className="px-4 py-4 text-center text-[11px] text-rose-500">{columnTotals.adjOut.toLocaleString()}</td>
-                      <td className="px-4 py-4 text-center text-[11px] text-rose-500">{columnTotals.otherOut.toLocaleString()}</td>
-                      <td className="px-4 py-4 text-center text-[11px] text-rose-500">{columnTotals.bonif.toLocaleString()}</td>
-                      <td className="px-4 py-4 text-center text-[11px] text-rose-500">{columnTotals.sale.toLocaleString()}</td>
-                      <td className="px-4 py-4 text-center text-[11px] text-rose-500">{columnTotals.loss.toLocaleString()}</td>
-                      <td className="px-4 py-4 text-center text-[11px] text-rose-500">{columnTotals.req.toLocaleString()}</td>
-                      <td className="px-4 py-4 text-center text-[11px] text-rose-600 border-r">{columnTotals.totalOut.toLocaleString()}</td>
-                      <td className="px-4 py-4 text-center text-[11px] text-amber-600">{columnTotals.subtotal.toLocaleString()}</td>
-                      <td className="px-4 py-4 text-center text-[11px] text-emerald-600">{columnTotals.finalStockReal.toLocaleString()}</td>
-                      <td className={`px-4 py-4 text-center text-[11px] ${Math.abs(columnTotals.difference) > 0.01 ? 'text-red-600' : 'text-emerald-600'}`}>
-                        {columnTotals.difference.toLocaleString()}
-                      </td>
-                    </tr>
                     {paginatedReconciliation.map(m => (
                       <tr key={m.material} className={`group transition-colors ${darkMode ? 'hover:bg-slate-800/20' : 'hover:bg-slate-50/50'}`}>
                         <td className="px-4 py-4 sticky left-0 z-10 transition-colors bg-white dark:bg-slate-900 group-hover:bg-slate-50 dark:group-hover:bg-slate-800">

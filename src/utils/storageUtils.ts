@@ -10,7 +10,7 @@ export const safeLocalStorageSet = (key: string, data: any): boolean => {
     return true;
   } catch (e: any) {
     if (e.name === 'QuotaExceededError' || e.name === 'NS_ERROR_DOM_QUOTA_REACHED') {
-      console.error(`Storage limit reached while saving ${key}!`);
+      // Storage limit reached, which is handled gracefully by falling back to other storage mechanisms.
       return false;
     }
     console.error(`Error saving to localStorage [${key}]:`, e);

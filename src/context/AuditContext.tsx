@@ -27,7 +27,7 @@ import { useMovementsWorker } from '../hooks/useMovementsWorker';
 import { mergeItemData, recalculateTotals, persistComment, calculateItemImpact } from '../utils/auditUtils';
 import { safeLocalStorageSet, safeLocalStorageGet, setLargeData, getLargeData } from '../utils/storageUtils';
 
-import { Divergencia, SAPMovementType, MaterialMovement, AuditRecipe, StockPosition, MovementColumnMapping, StockColumnMapping } from '../types/audit';
+import { Divergencia, SAPMovementType, MaterialMovement, AuditRecipe, StockPosition, MovementColumnMapping } from '../types/audit';
 
 interface AuditContextType {
   darkMode: boolean;
@@ -88,6 +88,8 @@ interface AuditContextType {
   setBranding: (b: any) => void;
   currency: string;
   setCurrency: (c: string) => void;
+  odataUrl: string;
+  setODataUrl: (url: string) => void;
   notificationSettings: {
     emailAlerts: boolean;
     managerEmail: string;
@@ -105,6 +107,8 @@ interface AuditContextType {
   setShowBranding: (b: boolean) => void;
   showTaxMatrix: boolean;
   setShowTaxMatrix: (b: boolean) => void;
+  filterHideZeroes: boolean;
+  setFilterHideZeroes: (b: boolean) => void;
   isPresentationMode: boolean;
   setIsPresentationMode: (b: boolean) => void;
   taxMatrix: Record<string, number>;
@@ -128,8 +132,6 @@ interface AuditContextType {
   setSelectedPlant: (plant: '1001' | '1005') => void;
   movementColumnMapping: MovementColumnMapping;
   setMovementColumnMapping: (m: MovementColumnMapping) => void;
-  stockColumnMapping: StockColumnMapping;                
-  setStockColumnMapping: (m: StockColumnMapping) => void;
   movementFiles: File[];
   setMovementFiles: (files: File[]) => void;
   isProcessingMovements: boolean;
@@ -390,6 +392,11 @@ export const AuditProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     return saved ? saved.currency || 'BRL' : 'BRL';
   });
 
+  const [odataUrl, setODataUrl] = useState(() => {
+    const saved = safeLocalStorageGet<any>('miniSapSettings', null);
+    return saved ? saved.odataUrl || '' : '';
+  });
+
   const [notificationSettings, setNotificationSettings] = useState(() => {
     const defaultNotif = {
       emailAlerts: false,
@@ -425,6 +432,7 @@ export const AuditProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     const saved = safeLocalStorageGet<any>('miniSapSettings', null);
     return saved ? saved.showTaxMatrix ?? true : true;
   });
+  const [filterHideZeroes, setFilterHideZeroes] = useState(false);
   
   // Load result from IndexedDB on boot
   useEffect(() => {
@@ -650,21 +658,6 @@ export const AuditProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     });
   });
 
-  const [stockColumnMapping, setStockColumnMapping] = useState<StockColumnMapping>(() => {
-    return safeLocalStorageGet('miniSapStockMapping', {
-      material: 0,
-      description: 1,
-      plant: 7,
-      initialQuantity: 14,
-      finalQuantity: 14,
-      startRow: 0
-    });
-  });
-
-  useEffect(() => {
-    safeLocalStorageSet('miniSapStockMapping', stockColumnMapping);
-  }, [stockColumnMapping]);
-
   const [movementFiles, setMovementFiles] = useState<File[]>([]);
   const { 
     isProcessing: isProcessingMovements, 
@@ -684,7 +677,7 @@ export const AuditProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       // (Simplified: we overwrite the specific keys in IDB which handles current data)
       setStatus('⚙️ Processando novos dados e otimizando armazenamento...');
 
-      const result = await processarMovimentosWorker(movementFiles, initialStockFiles, finalStockFiles, selectedPlant, movementColumnMapping, stockColumnMapping);
+      const result = await processarMovimentosWorker(movementFiles, initialStockFiles, finalStockFiles, selectedPlant, movementColumnMapping);
       
       const savedMovements = await setLargeData('miniSapMovements', result.movements);
       if (!savedMovements) addToast('Erro: Falha ao salvar movimentos no IndexedDB', 'error');
@@ -1191,6 +1184,7 @@ export const AuditProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     alertSettings, setAlertSettings,
     branding, setBranding,
     currency, setCurrency,
+    odataUrl, setODataUrl,
     notificationSettings, setNotificationSettings,
     showOnboarding, setShowOnboarding,
     showFinancialImpact, setShowFinancialImpact,
@@ -1198,6 +1192,7 @@ export const AuditProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     showRpaAutomation, setShowRpaAutomation,
     showBranding, setShowBranding,
     showTaxMatrix, setShowTaxMatrix,
+    filterHideZeroes, setFilterHideZeroes,
     isPresentationMode, setIsPresentationMode,
     taxMatrix, setTaxMatrix,
     decisionHistory, justificationBase,
@@ -1222,7 +1217,6 @@ export const AuditProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     initialStockPositions, finalStockPositions,
     selectedPlant, setSelectedPlant,
     movementColumnMapping, setMovementColumnMapping,
-    stockColumnMapping, setStockColumnMapping,
     isProcessingMovements, movementProcessingStatus, movementProgressPercent,
     processarMovimentacoes,
     recipes: recipes || [],
@@ -1239,6 +1233,7 @@ export const AuditProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     showRpaAutomation,
     showBranding,
     showTaxMatrix,
+    filterHideZeroes,
     isPresentationMode, 
     taxMatrix, decisionHistory, justificationBase,
     syncSapStatus, syncSapLastDate, syncSapData,
@@ -1259,7 +1254,6 @@ export const AuditProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     finalStockPositions,
     selectedPlant,
     movementColumnMapping,
-    stockColumnMapping,
     isProcessingMovements, movementProcessingStatus, movementProgressPercent,
     processarMovimentacoes,
     recipes

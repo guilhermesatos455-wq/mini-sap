@@ -43,7 +43,6 @@ const Sidebar: React.FC = React.memo(() => {
       title: 'Logística SAP',
       items: [
         { to: '/movements', icon: <RefreshCcw className="w-4 h-4" />, label: 'Movimentações (MB51)' },
-        { to: '/gemini-movements', icon: <Box className="w-4 h-4" />, label: 'Movimentação do Gemini' },
       ]
     },
     {

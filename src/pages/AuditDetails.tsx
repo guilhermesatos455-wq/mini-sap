@@ -179,6 +179,7 @@ const AuditDetailsPage: React.FC = () => {
   const [filterOrigemMaterial, setFilterOrigemMaterial] = useState<string[]>([]);
   const [filterEmpresa, setFilterEmpresa] = useState<string[]>([]);
   const [filterStatus, setFilterStatus] = useState<string>('Todos');
+  const { filterHideZeroes, setFilterHideZeroes } = useAudit();
   const [exportProgress, setExportProgress] = useState<{ active: boolean, progress: number, status: string }>({ active: false, progress: 0, status: '' });
   
   const dragScrollMain = useDraggableScroll();
@@ -585,6 +586,8 @@ const AuditDetailsPage: React.FC = () => {
                           (!deferredFilterDataFim || !d.data || d.data <= deferredFilterDataFim);
       if (!matchesData) continue;
 
+      if (filterHideZeroes && d.precoEfetivo === 0 && d.custoPadrao === 0 && d.variacaoPerc === 0) continue;
+
       const matchesTipoMaterial = !showColunas.tipoMaterial || deferredFilterTipoMaterial.length === 0 || (d.tipoMaterial && deferredFilterTipoMaterial.includes(d.tipoMaterial));
       if (!matchesTipoMaterial) continue;
       
@@ -820,8 +823,7 @@ const AuditDetailsPage: React.FC = () => {
             categoriaNF: item.categoriaNF,
             origemMaterial: item.origemMaterial,
             status: 'Agrupado',
-            _isGroupRoot: true,
-            children: [] // Store children items
+            _isGroupRoot: true
           };
         }
         
@@ -830,7 +832,6 @@ const AuditDetailsPage: React.FC = () => {
         groupedMap[key].custoTotalRealCKM3 += (item.quantidade || 0) * (item.custoPadrao || 0);
         groupedMap[key].valorTotalNF += (item.quantidade || 0) * (item.precoEfetivo || 0);
         groupedMap[key].count++;
-        groupedMap[key].children.push(item);
       });
 
       // Recalculate average costs/prices for visualization
@@ -1784,9 +1785,9 @@ const AuditDetailsPage: React.FC = () => {
   );
 
   const VirtuosoComponents = useMemo(() => ({
-    Table: (props: any) => <div {...props} className="min-w-[3300px] flex flex-col" />,
-    TableBody: (props: any) => <div {...props} className="flex flex-col" />,
-    TableRow: (props: any) => <div {...props} />
+    Table: (props: any) => <table {...props} className="min-w-[3300px] w-full" />,
+    TableBody: (props: any) => <tbody {...props} />,
+    TableRow: (props: any) => <tr {...props} />
   }), []);
 
   const VirtuosoHeader = useCallback(() => (
@@ -2407,6 +2408,21 @@ const AuditDetailsPage: React.FC = () => {
                         </div>
                       </div>
                       <span>Ativar Console Programático</span>
+                    </label>
+                    <div className={`w-px h-6 mx-2 ${darkMode ? 'bg-slate-800' : 'bg-gray-200'}`} />
+                    <label className="flex items-center gap-3 text-[10px] font-black uppercase cursor-pointer group text-[#8DC63F]">
+                      <div className="relative flex items-center">
+                        <input 
+                          type="checkbox" 
+                          checked={filterHideZeroes} 
+                          onChange={() => setFilterHideZeroes(!filterHideZeroes)} 
+                          className="sr-only"
+                        />
+                        <div className={`w-5 h-5 rounded-lg border-2 transition-all flex items-center justify-center ${ filterHideZeroes ? 'bg-[#8DC63F] border-[#8DC63F] shadow-lg shadow-[#8DC63F]/20' : (darkMode ? 'border-slate-700 bg-slate-800' : 'border-gray-300 bg-white') }`}>
+                          {filterHideZeroes && <Check className="w-3 h-3 text-white stroke-[3px]" />}
+                        </div>
+                      </div>
+                      <span>Ocultar Zeros</span>
                     </label>
 
                     <div className={`w-px h-6 mx-2 ${darkMode ? 'bg-slate-800' : 'bg-gray-200'}`} />
@@ -3058,66 +3074,43 @@ const AuditDetailsPage: React.FC = () => {
         )}
 
         {(activeTab === 'divergencias' || activeTab === 'todos' || activeTab === 'cfop' || activeTab === 'fornecedores' || activeTab === 'top5') && (
-          <div className={`px-6 py-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b ${darkMode ? 'border-slate-800 bg-slate-900/30' : 'border-gray-100 bg-white/50'}`}>
+          <div className={`px-6 py-3 border-b flex items-center justify-between ${darkMode ? 'border-slate-800 bg-slate-900/50' : 'border-gray-100 bg-gray-50/50'}`}>
             <div className="flex items-center gap-6">
-              <div className="flex items-center gap-4">
-                <div className={`flex items-center gap-2 px-3 py-1.5 rounded-xl border ${darkMode ? 'bg-slate-800/50 border-slate-700 shadow-inner' : 'bg-white border-gray-100 shadow-sm'}`}>
-                  <ListChecks className={`w-3.5 h-3.5 ${darkMode ? 'text-[#8DC63F]' : 'text-[#78AF32]'}`} />
-                  <p className={`text-[11px] font-black uppercase tracking-widest ${darkMode ? 'text-slate-300' : 'text-slate-700'}`}>
-                    Total de Itens: <span className="text-[#8DC63F] ml-1">{currentCount}</span>
-                  </p>
-                </div>
-                
+              <div className="flex items-center gap-3">
+                <p className={`text-[10px] font-bold uppercase tracking-wider ${darkMode ? 'text-slate-500' : 'text-gray-400'}`}>
+                  Total: <span className="text-[#8DC63F]">{currentCount}</span> itens
+                </p>
                 {selectedItems.size > 0 && (
-                  <div className={`flex items-center gap-2 px-3 py-1.5 rounded-xl border animate-in zoom-in duration-300 ${darkMode ? 'bg-brand-green/10 border-brand-green/30 text-brand-green' : 'bg-brand-green/5 border-brand-green/20 text-[#78AF32]'}`}>
-                    <CheckSquare className="w-3.5 h-3.5" />
-                    <span className="text-[11px] font-black uppercase tracking-widest">
-                      {selectedItems.size} selecionados
-                    </span>
-                  </div>
+                  <>
+                    <div className={`w-1 h-1 rounded-full ${darkMode ? 'bg-slate-700' : 'bg-gray-300'}`} />
+                    <div className="flex items-center gap-1.5 animate-in fade-in slide-in-from-left-1 duration-300">
+                      <CheckSquare className="w-3 h-3 text-brand-green" />
+                      <span className="text-[10px] font-black text-brand-green uppercase tracking-widest">
+                        {selectedItems.size} selecionados
+                      </span>
+                    </div>
+                  </>
                 )}
               </div>
-
+              
               {(activeTab === 'divergencias' || activeTab === 'todos') && (
-                <div className="flex items-center gap-4 ml-4 h-8 pl-6 border-l border-gray-200 dark:border-slate-800">
-                  <div className="flex items-center gap-2 group cursor-pointer" onClick={() => setIsGrouped(!isGrouped)}>
-                    <p className={`text-[10px] font-black uppercase tracking-widest transition-colors ${isGrouped ? 'text-[#8DC63F]' : (darkMode ? 'text-slate-500 group-hover:text-slate-300' : 'text-gray-400 group-hover:text-gray-600')}`}>
-                      Agrupar por Material
-                    </p>
-                    <button 
-                      className={`relative inline-flex h-5 w-10 shrink-0 items-center rounded-full transition-all duration-300 focus:outline-none shadow-inner ${isGrouped ? 'bg-[#8DC63F]' : (darkMode ? 'bg-slate-800 border border-slate-700' : 'bg-gray-200')}`}
-                    >
-                      <span
-                        className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white shadow-md transition-all duration-300 ${isGrouped ? 'translate-x-5.5' : 'translate-x-1'}`}
-                      />
-                    </button>
-                  </div>
-                  
+                <div className="flex items-center gap-2 border-l pl-6 border-gray-200 dark:border-slate-800">
+                  <span className={`text-[10px] font-bold uppercase tracking-wider ${darkMode ? 'text-slate-500' : 'text-gray-400'}`}>
+                    Agrupar por Material:
+                  </span>
+                  <button 
+                    onClick={() => setIsGrouped(!isGrouped)}
+                    className={`relative inline-flex h-5 w-10 items-center rounded-full transition-colors focus:outline-none ${isGrouped ? 'bg-[#8DC63F]' : (darkMode ? 'bg-slate-700' : 'bg-gray-200')}`}
+                  >
+                    <span
+                      className={`inline-block h-3 w-3 transform rounded-full bg-white transition-transform ${isGrouped ? 'translate-x-6' : 'translate-x-1'}`}
+                    />
+                  </button>
                   {isGrouped && (
-                    <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-[#8DC63F]/10 border border-[#8DC63F]/20">
-                      <div className="w-1 h-1 rounded-full bg-[#8DC63F] animate-pulse" />
-                      <span className="text-[8px] font-black text-[#8DC63F] uppercase tracking-tighter">Otimizado</span>
-                    </div>
+                    <span className="text-[9px] font-bold text-[#8DC63F] uppercase animate-pulse">Ativado</span>
                   )}
                 </div>
               )}
-            </div>
-
-            <div className="flex items-center gap-3">
-               <div className={`p-1 rounded-lg border flex items-center transition-all ${darkMode ? 'bg-slate-900 border-slate-800' : 'bg-gray-100 border-gray-200'}`}>
-                  <button 
-                    onClick={() => setItemsPerPage(25)}
-                    className={`px-3 py-1 rounded-md text-[9px] font-black uppercase tracking-widest transition-all ${itemsPerPage === 25 ? (darkMode ? 'bg-slate-800 text-[#8DC63F] shadow-lg' : 'bg-white text-[#78AF32] shadow-sm') : (darkMode ? 'text-slate-600 hover:text-slate-400' : 'text-gray-400 hover:text-gray-600')}`}
-                  >
-                    25 items
-                  </button>
-                  <button 
-                    onClick={() => setItemsPerPage(100)}
-                    className={`px-3 py-1 rounded-md text-[9px] font-black uppercase tracking-widest transition-all ${itemsPerPage === 100 ? (darkMode ? 'bg-slate-800 text-[#8DC63F] shadow-lg' : 'bg-white text-[#78AF32] shadow-sm') : (darkMode ? 'text-slate-600 hover:text-slate-400' : 'text-gray-400 hover:text-gray-600')}`}
-                  >
-                    100 items
-                  </button>
-               </div>
             </div>
           </div>
         )}
@@ -3207,8 +3200,6 @@ const AuditDetailsPage: React.FC = () => {
                       formatoMoeda={formatoMoeda} 
                       darkMode={darkMode} 
                       showFinancialImpact={showFinancialImpact}
-                      askAI={askAI}
-                      aiUser={aiUser}
                     />
                     {isExpanded && (
                       <ExpandedRowMemo 
@@ -3312,38 +3303,9 @@ const AuditDetailsPage: React.FC = () => {
                 }
                 style={{ height: '100%' }}
                 components={{
-                  Table: (props) => <div {...props} className="min-w-full flex flex-col" />,
-                  TableBody: (props) => <div {...props} className="flex flex-col" />,
-                  TableRow: (props) => <div {...props} className="flex flex-col" />,
-                  TableFoot: () => (
-                    <div className={`border-t-2 sticky bottom-0 z-10 flex items-center h-12 text-sm font-bold ${darkMode ? 'border-slate-700 bg-slate-800' : 'border-gray-200 bg-gray-50'}`}>
-                      {activeTab === 'pivot' ? (
-                        <>
-                          <div className="px-2 shrink-0 w-32">TOTAL GERAL</div>
-                          <div className="px-2 shrink-0 w-64"></div>
-                          <div className="px-2 shrink-0 w-64"></div>
-                          <div className="px-2 shrink-0 w-32 text-right">{summaryTotals.totalItens}</div>
-                          <div className="px-2 shrink-0 w-40 text-right">{summaryTotals.divPerc.toFixed(1)}%</div>
-                          <div className={`px-2 shrink-0 w-48 text-right ${totals.prejuizo - totals.economia > 0 ? 'text-red-500' : 'text-[#8DC63F]'}`}>
-                            {formatoMoeda.format(totals.prejuizo - totals.economia)}
-                          </div>
-                          <div className="px-2 shrink-0 w-24"></div>
-                        </>
-                      ) : (
-                        <>
-                          <div className="px-2 shrink-0 w-32">TOTAL GERAL</div>
-                          <div className="px-2 shrink-0 w-32 text-right">{summaryTotals.totalItens}</div>
-                          <div className="px-2 shrink-0 w-40 text-right">{summaryTotals.divPerc.toFixed(1)}%</div>
-                          <div className="px-2 shrink-0 w-48 text-right text-red-500">{formatoMoeda.format(totals.prejuizo)}</div>
-                          <div className="px-2 shrink-0 w-48 text-right text-[#8DC63F]">{formatoMoeda.format(totals.economia)}</div>
-                          <div className={`px-2 shrink-0 w-48 text-right ${totals.prejuizo - totals.economia > 0 ? 'text-red-500' : 'text-[#8DC63F]'}`}>
-                            {formatoMoeda.format(totals.prejuizo - totals.economia)}
-                          </div>
-                          <div className="px-2 shrink-0 w-24"></div>
-                        </>
-                      )}
-                    </div>
-                  )
+                  Table: (props) => <table {...props} className="min-w-full" />,
+                  TableBody: (props) => <tbody {...props} />,
+                  TableRow: (props) => <tr {...props} />,
                 }}
                 fixedHeaderContent={() => (
                   <div className={`flex items-center text-[10px] uppercase tracking-wider font-bold border-b sticky top-0 z-20 h-10 ${darkMode ? 'bg-slate-800/50 border-slate-800 text-slate-500' : 'bg-gray-50 border-gray-100 text-gray-400'}`}>
@@ -3560,6 +3522,33 @@ const AuditDetailsPage: React.FC = () => {
                   return null;
                 }}
               />
+              <div className={`border-t-2 flex items-center h-12 text-sm font-bold ${darkMode ? 'border-slate-700 bg-slate-800' : 'border-gray-200 bg-gray-50'}`}>
+                {activeTab === 'pivot' ? (
+                  <>
+                    <div className="px-2 shrink-0 w-32">TOTAL GERAL</div>
+                    <div className="px-2 shrink-0 w-64"></div>
+                    <div className="px-2 shrink-0 w-64"></div>
+                    <div className="px-2 shrink-0 w-32 text-right">{summaryTotals.totalItens}</div>
+                    <div className="px-2 shrink-0 w-40 text-right">{summaryTotals.divPerc.toFixed(1)}%</div>
+                    <div className={`px-2 shrink-0 w-48 text-right ${totals.prejuizo - totals.economia > 0 ? 'text-red-500' : 'text-[#8DC63F]'}`}>
+                      {formatoMoeda.format(totals.prejuizo - totals.economia)}
+                    </div>
+                    <div className="px-2 shrink-0 w-24"></div>
+                  </>
+                ) : (
+                  <>
+                    <div className="px-2 shrink-0 w-32">TOTAL GERAL</div>
+                    <div className="px-2 shrink-0 w-32 text-right">{summaryTotals.totalItens}</div>
+                    <div className="px-2 shrink-0 w-40 text-right">{summaryTotals.divPerc.toFixed(1)}%</div>
+                    <div className="px-2 shrink-0 w-48 text-right text-red-500">{formatoMoeda.format(totals.prejuizo)}</div>
+                    <div className="px-2 shrink-0 w-48 text-right text-[#8DC63F]">{formatoMoeda.format(totals.economia)}</div>
+                    <div className={`px-2 shrink-0 w-48 text-right ${totals.prejuizo - totals.economia > 0 ? 'text-red-500' : 'text-[#8DC63F]'}`}>
+                      {formatoMoeda.format(totals.prejuizo - totals.economia)}
+                    </div>
+                    <div className="px-2 shrink-0 w-24"></div>
+                  </>
+                )}
+              </div>
             </div>
           </div>
         )}

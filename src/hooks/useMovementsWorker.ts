@@ -18,7 +18,7 @@ export const useMovementsWorker = () => {
     });
   }, []);
 
-  const iniciarProcessamento = useCallback(async (files: File[], initialFiles: File[] = [], finalFiles: File[] = [], plant: string = '1001', mapping?: any, stockMapping?: any) => {
+  const iniciarProcessamento = useCallback(async (files: File[], initialFiles: File[] = [], finalFiles: File[] = [], plant: string = '1001', mapping?: any) => {
     if (files.length === 0 && initialFiles.length === 0 && finalFiles.length === 0) {
       return Promise.reject(new Error('Nenhum arquivo selecionado'));
     }
@@ -89,8 +89,7 @@ export const useMovementsWorker = () => {
         filesNames,
         fileTypes,
         plant,
-        mapping,
-        stockMapping
+        mapping
       }, filesData);
     });
   }, [lerExcelBuffer]);

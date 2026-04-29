@@ -34,16 +34,19 @@ import { requestBiometricAuth } from '../utils/biometricUtils';
 import RobotControl from '../components/RobotControl';
 
 const SettingsPage: React.FC = () => {
-  const { 
+    const { 
     darkMode, setDarkMode,
     tolerancia, setTolerancia, 
     cfops, setCfops,
     mapColunas, setMapColunas,
-    stockColumnMapping, setStockColumnMapping,
     customPresets, saveCustomPreset, deleteCustomPreset,
     alertSettings, setAlertSettings,
     branding, setBranding,
     currency, setCurrency,
+    odataUrl, setODataUrl,
+    movements,
+    initialStockPositions,
+    finalStockPositions,
     notificationSettings, setNotificationSettings,
     showFinancialImpact, setShowFinancialImpact,
     showMaterialsPMM, setShowMaterialsPMM,
@@ -63,10 +66,10 @@ const SettingsPage: React.FC = () => {
   const [localTolerancia, setLocalTolerancia] = useState(tolerancia);
   const [localCfops, setLocalCfops] = useState(cfops);
   const [localMapColunas, setLocalMapColunas] = useState(mapColunas);
-  const [localStockColumnMapping, setLocalStockColumnMapping] = useState(stockColumnMapping);
   const [localAlertSettings, setLocalAlertSettings] = useState(alertSettings);
   const [localBranding, setLocalBranding] = useState(branding);
   const [localCurrency, setLocalCurrency] = useState(currency);
+  const [localODataUrl, setLocalODataUrl] = useState(odataUrl);
   const [localNotificationSettings, setLocalNotificationSettings] = useState(notificationSettings);
   const [localShowFinancialImpact, setLocalShowFinancialImpact] = useState(showFinancialImpact);
   const [localTaxMatrix, setLocalTaxMatrix] = useState(taxMatrix);
@@ -84,10 +87,10 @@ const SettingsPage: React.FC = () => {
     setLocalTolerancia(tolerancia);
     setLocalCfops(cfops);
     setLocalMapColunas(mapColunas);
-    setLocalStockColumnMapping(stockColumnMapping);
     setLocalAlertSettings(alertSettings);
     setLocalBranding(branding);
     setLocalCurrency(currency);
+    setLocalODataUrl(odataUrl);
     setLocalNotificationSettings(notificationSettings);
     setLocalShowFinancialImpact(showFinancialImpact);
     setLocalTaxMatrix(taxMatrix);
@@ -138,10 +141,10 @@ const SettingsPage: React.FC = () => {
     setTolerancia(localTolerancia);
     setCfops(localCfops);
     setMapColunas(localMapColunas);
-    setStockColumnMapping(localStockColumnMapping);
     setAlertSettings(localAlertSettings);
     setBranding(localBranding);
     setCurrency(localCurrency);
+    setODataUrl(localODataUrl);
     setNotificationSettings(localNotificationSettings);
     setShowFinancialImpact(localShowFinancialImpact);
     setTaxMatrix(localTaxMatrix);
@@ -157,10 +160,10 @@ const SettingsPage: React.FC = () => {
       tolerancia: localTolerancia,
       cfops: localCfops,
       mapColunas: localMapColunas,
-      stockColumnMapping: localStockColumnMapping,
       alertSettings: localAlertSettings,
       branding: localBranding,
       currency: localCurrency,
+      odataUrl: localODataUrl,
       notificationSettings: localNotificationSettings,
       customPresets: customPresets,
       version: '1.0',
@@ -305,10 +308,10 @@ const SettingsPage: React.FC = () => {
         if (settings.tolerancia !== undefined) setLocalTolerancia(settings.tolerancia);
         if (settings.cfops !== undefined) setLocalCfops(settings.cfops);
         if (settings.mapColunas !== undefined) setLocalMapColunas(settings.mapColunas);
-        if (settings.stockColumnMapping !== undefined) setLocalStockColumnMapping(settings.stockColumnMapping);
         if (settings.alertSettings !== undefined) setLocalAlertSettings(settings.alertSettings);
         if (settings.branding !== undefined) setLocalBranding(settings.branding);
         if (settings.currency !== undefined) setLocalCurrency(settings.currency);
+        if (settings.odataUrl !== undefined) setLocalODataUrl(settings.odataUrl);
         if (settings.notificationSettings !== undefined) setLocalNotificationSettings(settings.notificationSettings);
         
         if (settings.customPresets) {
@@ -434,37 +437,6 @@ const SettingsPage: React.FC = () => {
       </header>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        {/* Mapeamento de Estoque */}
-        <section className={`lg:col-span-1 p-6 rounded-2xl border ${darkMode ? 'bg-slate-900 border-slate-800' : 'bg-white border-gray-200'}`}>
-          <h3 className={`flex items-center gap-2 text-lg font-bold mb-6 ${darkMode ? 'text-[#8DC63F]' : 'text-gray-800'}`}>
-            <LayoutIcon className="w-5 h-5" />
-            Mapeamento de Planilhas de Estoque
-          </h3>
-          
-          <div className="space-y-4">
-            {[
-              { label: 'Coluna Material', key: 'material' },
-              { label: 'Coluna Descrição', key: 'description' },
-              { label: 'Coluna Centro (Plant)', key: 'plant' },
-              { label: 'Coluna Qtd Inicial', key: 'initialQuantity' },
-              { label: 'Coluna Qtd Final', key: 'finalQuantity' },
-              { label: 'Linha Inicial (Dados)', key: 'startRow' }
-            ].map(({ label, key }) => (
-              <div key={key}>
-                <label className={`block text-xs font-bold mb-1 ${darkMode ? 'text-slate-400' : 'text-gray-600'}`}>
-                  {label} (Índice 0-based)
-                </label>
-                <input
-                  type="number"
-                  value={localStockColumnMapping[key as keyof typeof localStockColumnMapping]}
-                  onChange={(e) => setLocalStockColumnMapping({ ...localStockColumnMapping, [key]: Number(e.target.value) })}
-                  className={`w-full p-2 border rounded-lg text-sm ${darkMode ? 'bg-slate-800 border-slate-700 text-slate-100' : 'bg-white border-gray-200'}`}
-                />
-              </div>
-            ))}
-          </div>
-        </section>
-
         {/* General Parameters */}
         <section className={`lg:col-span-1 p-6 rounded-2xl border ${darkMode ? 'bg-slate-900 border-slate-800' : 'bg-white border-gray-200'}`}>
           <h3 className={`flex items-center gap-2 text-lg font-bold mb-6 ${darkMode ? 'text-[#8DC63F]' : 'text-gray-800'}`}>
@@ -813,6 +785,30 @@ const SettingsPage: React.FC = () => {
                   className={`w-full p-3 border rounded-xl text-sm transition-all focus:outline-none focus:ring-2 ${darkMode ? 'bg-slate-800 border-slate-700 text-slate-100 focus:ring-[#8DC63F]/50' : 'border-gray-200 focus:ring-[#8DC63F]/50'}`}
                 />
                 <p className="mt-2 text-[10px] text-slate-500 italic">Deixe em branco para usar o logo padrão.</p>
+              </div>
+
+              <div>
+                <label className={`flex items-center gap-2 text-xs font-bold mb-2 ${darkMode ? 'text-slate-400' : 'gray-600'}`}>
+                  Integração Power BI
+                </label>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => {
+                        const data = { movements, initialStockPositions, finalStockPositions };
+                        const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+                        const url = URL.createObjectURL(blob);
+                        const a = document.createElement('a');
+                        a.href = url;
+                        a.download = 'dados_auditoria.json';
+                        a.click();
+                        URL.revokeObjectURL(url);
+                    }}
+                    className="flex-1 p-3 bg-[#8DC63F] text-white rounded-xl text-sm font-bold hover:bg-[#7ab035] transition-all"
+                  >
+                    Exportar JSON para Power BI
+                  </button>
+                </div>
+                <p className="mt-2 text-[10px] text-slate-500 italic">Clique para baixar os dados atuais em formato JSON e carregue no Power BI usando o conector "Web".</p>
               </div>
 
               <div className="pt-4 border-t border-dashed border-slate-700/50">

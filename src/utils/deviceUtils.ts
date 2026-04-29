@@ -18,8 +18,7 @@ export const getDeviceId = (): string => {
     // Also set a long-lived cookie
     document.cookie = `na_did=${deviceId}; path=/; max-age=31536000; SameSite=Strict`;
   } else {
-    // Sync back to both if one is missing
-    safeLocalStorageSet('natuassist_device_id', deviceId);
+    // Ensure cookie is synced, but don't re-save to localStorage if already present
     document.cookie = `na_did=${deviceId}; path=/; max-age=31536000; SameSite=Strict`;
   }
   

@@ -50,7 +50,7 @@ const fuzzyDetect = (headers: any[], synonyms: string[]): number => {
 };
 
 self.onmessage = async (e) => {
-  const { filesData, filesNames, fileTypes, plant, mapping, stockMapping } = e.data;
+  const { filesData, filesNames, fileTypes, plant, mapping } = e.data;
 
   try {
     const allMovements: any[] = [];
@@ -124,7 +124,7 @@ self.onmessage = async (e) => {
           const row = data[i];
           if (!row || row.length === 0) continue;
 
-          const material = idxMat >= 0 ? String(row[idxMat] || '').trim().replace(/^0+/, '') : '';
+          const material = idxMat >= 0 ? String(row[idxMat] || '').trim() : '';
           if (!material) continue;
 
           // 1. Materiais que começam com 10 ou 49 não geram estoque
@@ -139,7 +139,7 @@ self.onmessage = async (e) => {
 
           // Filtrar por Centro se especificado
           const currentPlant = idxPlant >= 0 ? String(row[idxPlant] || '').trim() : '';
-          if (plant && currentPlant && !currentPlant.startsWith(plant)) continue;
+          if (plant && currentPlant && currentPlant !== plant) continue;
 
           const docNumber = idxDoc >= 0 ? String(row[idxDoc] || '').trim() : '';
           const date = idxDate >= 0 ? parseExcelDate(row[idxDate]) : null;
@@ -165,24 +165,41 @@ self.onmessage = async (e) => {
         // L: Estoque Final (11)
         
         // Detectar início dos dados e identificar colunas
-        let dataStartIdx = stockMapping?.startRow ?? 7;
-        let idxMat = 0; // Coluna A
-        let idxDesc = 1; // Coluna B
-        let idxPlant = stockMapping?.plant ?? 4; // Coluna E
-        let idxQtd = stockMapping?.initialQuantity ?? 11; // Coluna L
+        let dataStartIdx = 0;
+        let idxMat = 0;
+        let idxDesc = 1;
+        let idxPlant = 4;
+        let idxQtd = 11;
+
+        for (let i = 0; i < Math.min(data.length, 25); i++) {
+          const row = data[i];
+          if (row && row.some(cell => typeof cell === 'string' && cell.toUpperCase().includes('MATERIAL'))) {
+            dataStartIdx = i + 1;
+            const headers = row;
+            const fMat = fuzzyDetect(headers, ['Material', 'Cód.']);
+            const fDesc = fuzzyDetect(headers, ['Descrição', 'Texto Breve']);
+            const fPlant = fuzzyDetect(headers, ['Centro', 'Plant', 'Plnt']);
+            const fQtd = fuzzyDetect(headers, ['Estoque', 'Quantidade', 'Livre', 'Final']);
+            if (fMat >= 0) idxMat = fMat;
+            if (fDesc >= 0) idxDesc = fDesc;
+            if (fPlant >= 0) idxPlant = fPlant;
+            if (fQtd >= 0) idxQtd = fQtd;
+            break;
+          }
+        }
 
         for (let i = dataStartIdx; i < data.length; i++) {
           const row = data[i];
           if (!row || !row[idxMat]) continue;
 
           const currentPlant = String(row[idxPlant] || '').trim();
-          if (plant && currentPlant && !currentPlant.startsWith(plant)) continue;
+          if (plant && currentPlant && currentPlant !== plant) continue;
 
           const item = {
-            material: String(row[idxMat] || '').trim().replace(/^0+/, ''),
+            material: String(row[idxMat] || '').trim(),
             description: String(row[idxDesc] || '').trim(),
             plant: currentPlant,
-            quantity: parseFloat(String(row[idxQtd] || 0).replace(/\./g, '').replace(',', '.')) || 0
+            quantity: parseNumber(row[idxQtd])
           };
 
           if (fileType === 'initial') allInitial.push(item);
