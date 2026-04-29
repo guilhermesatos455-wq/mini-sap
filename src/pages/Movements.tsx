@@ -289,35 +289,41 @@ const MovementsPage: React.FC = () => {
   const reconciliationData = useMemo(() => {
     const materials: Record<string, any> = {};
     
+    // Função para limpar o código do material (remove zeros à esquerda e espaços em branco)
+    const normalizeMaterial = (mat: any) => String(mat || '').replace(/^0+/, '').trim();
+
     const getBase = (m: any) => ({
-      material: m.material,
-      description: m.description,
-      initial: 0,
-      prod: 0, 
-      dev: 0, 
-      adjIn: 0, 
-      adjOut: 0, 
-      otherOut: 0, 
-      bonif: 0, 
-      sale: 0, 
-      loss: 0, 
-      req: 0, 
-      finalStockReal: 0 
+      material: normalizeMaterial(m.material),
+      description: m.description || '',
+      initial: 0, prod: 0, dev: 0, adjIn: 0, adjOut: 0, 
+      otherOut: 0, bonif: 0, sale: 0, loss: 0, req: 0, finalStockReal: 0 
     });
 
-    // CORREÇÃO 1: Usando += para acumular estoques de múltiplos lotes/depósitos
+    // 1. Processar Estoque Inicial
     initialStockPositions.forEach(p => {
-      if (!materials[p.material]) materials[p.material] = getBase(p);
-      materials[p.material].initial += p.quantity;
+      const matKey = normalizeMaterial(p.material);
+      if (!matKey) return; // Ignora linhas em branco
+      
+      if (!materials[matKey]) materials[matKey] = getBase(p);
+      // Força a conversão para número para evitar NaN e falhas de soma
+      materials[matKey].initial += (Number(p.quantity) || 0);
     });
 
+    // 2. Processar Estoque Final
     finalStockPositions.forEach(p => {
-      if (!materials[p.material]) materials[p.material] = getBase(p);
-      materials[p.material].finalStockReal += p.quantity;
+      const matKey = normalizeMaterial(p.material);
+      if (!matKey) return;
+      
+      if (!materials[matKey]) materials[matKey] = getBase(p);
+      materials[matKey].finalStockReal += (Number(p.quantity) || 0);
     });
 
+    // 3. Processar Movimentações MB51
     movements.forEach(m => {
-      if (!materials[m.material]) materials[m.material] = getBase(m);
+      const matKey = normalizeMaterial(m.material);
+      if (!matKey) return;
+
+      if (!materials[matKey]) materials[matKey] = getBase(m);
       
       const type = movementTypes.find(t => t.code === m.movementType);
       if (type) {
@@ -328,22 +334,22 @@ const MovementsPage: React.FC = () => {
         }
 
         if (category) {
-          const qty = m.quantity;
+          const qty = Number(m.quantity) || 0;
           switch (category) {
-            case 'INITIAL_STOCK': if (initialStockPositions.length === 0) materials[m.material].initial += qty; break;
-            case 'PRODUCTION_PURCHASE': materials[m.material].prod += qty; break;
-            case 'RETURN_ENTRY': materials[m.material].dev += qty; break;
-            case 'ADJUSTMENT_ENTRY': materials[m.material].adjIn += qty; break;
+            case 'INITIAL_STOCK': if (initialStockPositions.length === 0) materials[matKey].initial += qty; break;
+            case 'PRODUCTION_PURCHASE': materials[matKey].prod += qty; break;
+            case 'RETURN_ENTRY': materials[matKey].dev += qty; break;
+            case 'ADJUSTMENT_ENTRY': materials[matKey].adjIn += qty; break;
             
-            // CORREÇÃO 2: Usando '-= qty' para que estornos positivos (mov. de anulação) abatam das saídas
-            case 'ADJUSTMENT_EXIT': materials[m.material].adjOut -= qty; break;
-            case 'OTHER_EXIT': materials[m.material].otherOut -= qty; break;
-            case 'BONIFICATION': materials[m.material].bonif -= qty; break;
-            case 'SALE': materials[m.material].sale -= qty; break;
-            case 'LOSS': materials[m.material].loss -= qty; break;
-            case 'REQUISITION': materials[m.material].req -= qty; break;
+            // Usando '-= qty' para que estornos positivos (mov. de anulação) abatam das saídas
+            case 'ADJUSTMENT_EXIT': materials[matKey].adjOut -= qty; break;
+            case 'OTHER_EXIT': materials[matKey].otherOut -= qty; break;
+            case 'BONIFICATION': materials[matKey].bonif -= qty; break;
+            case 'SALE': materials[matKey].sale -= qty; break;
+            case 'LOSS': materials[matKey].loss -= qty; break;
+            case 'REQUISITION': materials[matKey].req -= qty; break;
             
-            case 'FINAL_STOCK': if (finalStockPositions.length === 0) materials[m.material].finalStockReal += qty; break;
+            case 'FINAL_STOCK': if (finalStockPositions.length === 0) materials[matKey].finalStockReal += qty; break;
           }
         }
       }
@@ -354,7 +360,7 @@ const MovementsPage: React.FC = () => {
       const totalOut = m.adjOut + m.otherOut + m.bonif + m.sale + m.loss + m.req; 
       const subtotal = totalIn - totalOut; 
       
-      // CORREÇÃO 3: Arredondamento para 3 casas decimais para matar o lixo de memória de float do JS
+      // Arredondamento para 3 casas decimais para matar o lixo de memória de float do JS
       const difference = Math.round((subtotal - m.finalStockReal) * 1000) / 1000;
       
       return { ...m, totalIn, totalOut, subtotal, difference };

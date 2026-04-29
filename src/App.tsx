@@ -11,6 +11,7 @@ import SettingsPage from './pages/Settings';
 import HelpPage from './pages/Help';
 import PriceSimulatorPage from './pages/PriceSimulator';
 import MovementsPage from './pages/Movements';
+import GeminiMovementsPage from './pages/GeminiMovements';
 import MaterialDashboardPage from './pages/MaterialDashboard';
 import RecipesPage from './pages/Recipes';
 import AITermsPage from './pages/AITerms';
@@ -68,6 +69,7 @@ const App: React.FC = () => {
               } />
               <Route path="history" element={<HistoryPage />} />
               <Route path="movements" element={<MovementsPage />} />
+              <Route path="gemini-movements" element={<GeminiMovementsPage />} />
               <Route path="material-dashboard" element={<MaterialDashboardPage />} />
               <Route path="simulator" element={<PriceSimulatorPage />} />
               <Route path="recipes" element={<RecipesPage />} />

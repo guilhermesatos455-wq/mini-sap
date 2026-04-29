@@ -168,8 +168,8 @@ self.onmessage = async (e) => {
         let dataStartIdx = stockMapping?.startRow ?? 7;
         let idxMat = 0; // Coluna A
         let idxDesc = 1; // Coluna B
-        let idxPlant = 4; // Coluna E
-        let idxQtd = 11; // Coluna L
+        let idxPlant = stockMapping?.plant ?? 4; // Coluna E
+        let idxQtd = stockMapping?.initialQuantity ?? 11; // Coluna L
 
         for (let i = dataStartIdx; i < data.length; i++) {
           const row = data[i];
