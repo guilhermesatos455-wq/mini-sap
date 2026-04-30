@@ -16,7 +16,6 @@ import RecipesPage from './pages/Recipes';
 import AITermsPage from './pages/AITerms';
 import { getDeviceId } from './utils/deviceUtils';
 import { ShieldAlert } from 'lucide-react';
-import BotChat from './components/AIAssistant/BotChat';
 
 const BanGuard: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { bannedDevices } = useAudit();
@@ -78,7 +77,6 @@ const App: React.FC = () => {
                 <Route path="ai-terms" element={<AITermsPage />} />
               </Route>
             </Routes>
-            <BotChat />
           </ErrorBoundary>
         </Router>
       </BanGuard>

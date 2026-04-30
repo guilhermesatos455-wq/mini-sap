@@ -40,7 +40,31 @@ const ColumnMapping: React.FC<ColumnMappingProps> = ({
     { label: 'Material', key: 'ckm3Mat' },
     { label: 'Custo', key: 'ckm3Custo' },
     { label: 'Centro', key: 'ckm3Centro' },
-    { label: 'Descrição', key: 'ckm3Desc' }
+    { label: 'Descrição', key: 'ckm3Desc' },
+    { label: 'Qtde. Jan (K)', key: 'ckm3QtdJan' },
+    { label: 'Vlr. Jan (L)', key: 'ckm3VlrJan' },
+    { label: 'Qtde. Fev (M)', key: 'ckm3QtdFev' },
+    { label: 'Vlr. Fev (N)', key: 'ckm3VlrFev' },
+    { label: 'Qtde. Mar (O)', key: 'ckm3QtdMar' },
+    { label: 'Vlr. Mar (P)', key: 'ckm3VlrMar' },
+    { label: 'Qtde. Abr (Q)', key: 'ckm3QtdAbr' },
+    { label: 'Vlr. Abr (R)', key: 'ckm3VlrAbr' },
+    { label: 'Qtde. Mai (S)', key: 'ckm3QtdMai' },
+    { label: 'Vlr. Mai (T)', key: 'ckm3VlrMai' },
+    { label: 'Qtde. Jun (U)', key: 'ckm3QtdJun' },
+    { label: 'Vlr. Jun (V)', key: 'ckm3VlrJun' },
+    { label: 'Qtde. Jul (W)', key: 'ckm3QtdJul' },
+    { label: 'Vlr. Jul (X)', key: 'ckm3VlrJul' },
+    { label: 'Qtde. Ago (Y)', key: 'ckm3QtdAgo' },
+    { label: 'Vlr. Ago (Z)', key: 'ckm3VlrAgo' },
+    { label: 'Qtde. Set (AA)', key: 'ckm3QtdSet' },
+    { label: 'Vlr. Set (AB)', key: 'ckm3VlrSet' },
+    { label: 'Qtde. Out (AC)', key: 'ckm3QtdOut' },
+    { label: 'Vlr. Out (AD)', key: 'ckm3VlrOut' },
+    { label: 'Qtde. Nov (AE)', key: 'ckm3QtdNov' },
+    { label: 'Vlr. Nov (AF)', key: 'ckm3VlrNov' },
+    { label: 'Qtde. Dez (AG)', key: 'ckm3QtdDez' },
+    { label: 'Vlr. Dez (AH)', key: 'ckm3VlrDez' }
   ];
 
   const handleInputChange = (key: string, value: string) => {

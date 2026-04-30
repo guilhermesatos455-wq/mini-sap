@@ -3,7 +3,6 @@ import { Outlet } from 'react-router-dom';
 import Sidebar from './Sidebar';
 import BottomNav from './BottomNav';
 import ToastContainer from './ToastContainer';
-import AIAssistant from './AIAssistant/AIAssistant';
 import { useAudit } from '../context/AuditContext';
 
 const Layout: React.FC = () => {
@@ -19,7 +18,6 @@ const Layout: React.FC = () => {
         </div>
       </main>
       <BottomNav />
-      <AIAssistant />
     </div>
   );
 };

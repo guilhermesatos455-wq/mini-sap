@@ -30,7 +30,6 @@ import { motion } from 'framer-motion';
 import { safeLocalStorageSet } from '../utils/storageUtils';
 import SummaryCards from '../components/dashboard/SummaryCards';
 import AlertsSection from '../components/dashboard/AlertsSection';
-import AIInsightCard from '../components/AIAssistant/AIInsightCard';
 import StatCard from '../components/dashboard/StatCard';
 
 // Lazy loaded components
@@ -440,25 +439,6 @@ const DashboardPage: React.FC = () => {
 
       {/* NatuAssist Insights Section */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        <AIInsightCard 
-          title="Anomalia de Preço Detectada"
-          description="O material MAT-0001 apresentou uma variação de 15% acima do custo padrão no fornecedor X. Este padrão se repete em 3 das últimas 5 notas."
-          type="warning"
-          actionLabel="Ver detalhes"
-          onAction={() => navigate('/details')}
-        />
-        <AIInsightCard 
-          title="Otimização de Estoque"
-          description="Com base no MB51, o material MAT-0002 tem giro baixo. Sugerimos reduzir o estoque de segurança em 10% para liberar capital."
-          type="info"
-          actionLabel="Analisar movimentos"
-          onAction={() => navigate('/movements')}
-        />
-        <AIInsightCard 
-          title="Conformidade Fiscal"
-          description="Todos os CFOPs de entrada estão alinhados com as regras de negócio da planta 1000 para este período."
-          type="success"
-        />
       </div>
 
       {/* Alerts Section */}
