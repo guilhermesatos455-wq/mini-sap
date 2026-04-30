@@ -2,10 +2,12 @@ import React, { useState, useMemo } from 'react';
 import ReactWebChat, { createDirectLine } from 'botframework-webchat';
 import { MessageSquare, X } from 'lucide-react';
 
-const ChatBubble: React.FC = () => {
+const BotChat: React.FC = () => {
   const [isOpen, setIsOpen] = useState(false);
 
   const directLine = useMemo(() => {
+    // The Direct Line Secret should be set in the environment.
+    // Ensure VITE_BOT_DIRECT_LINE_SECRET is set in your .env or AI Studio settings.
     const secret = import.meta.env.VITE_BOT_DIRECT_LINE_SECRET;
     if (!secret) {
       console.warn("VITE_BOT_DIRECT_LINE_SECRET is not set");
@@ -42,4 +44,4 @@ const ChatBubble: React.FC = () => {
   );
 };
 
-export default ChatBubble;
+export default BotChat;
