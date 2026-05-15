@@ -50,6 +50,7 @@ import { MultiSelect } from '../components/AuditDetails/MultiSelect';
 import { StatusBadge } from '../components/AuditDetails/StatusBadge';
 import { TableRowMemo, ExpandedRowMemo } from '../components/AuditDetails/AuditTableRows';
 import { ExportModal } from '../components/AuditDetails/ExportModal';
+import { ColumnToggleDropdown } from '../components/AuditDetails/ColumnToggleDropdown';
 import { BulkEditModal } from '../components/AuditDetails/BulkEditModal';
 import { QUICK_EXAMPLES } from '../constants/auditExamples';
 import { EXPORT_COLUMNS, QUICK_EXPORT_COLUMNS } from '../constants/auditConstants';
@@ -69,7 +70,8 @@ const AuditDetailsPage: React.FC = () => {
     dataFim: dataFimContext, setDataFim: setFilterDataFimContext,
     updateDivergencia, bulkUpdateDivergencias,
     currency, warnings, showFinancialImpact,
-    askAI, aproveDivergencia, rejeitarDivergencia, recipes
+    showColunas, setShowColunas,
+    askAI, aproveDivergencia, bulkAproveDivergencia, rejeitarDivergencia, bulkRejeitarDivergencia, recipes
   } = useAudit();
 
   const aiUser = useMemo(() => ({ nome: 'Auditor Natulab', cargo: 'Fiscal' }), []);
@@ -417,6 +419,7 @@ const AuditDetailsPage: React.FC = () => {
   const deferredFilterEmpresa = useDeferredValue(filterEmpresa);
   const deferredFilterStatus = useDeferredValue(filterStatus);
 
+  /*
   const [showColunas, setShowColunas] = useState<ShowColunas>({
     empresa: false,
     numeroNF: false,
@@ -431,6 +434,7 @@ const AuditDetailsPage: React.FC = () => {
     valorTotalSemFrete: false,
     valorTotalComFrete: false,
   });
+  */
   const [expandedRows, setExpandedRows] = useState<Set<number | string>>(new Set());
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(25);
@@ -804,8 +808,12 @@ const AuditDetailsPage: React.FC = () => {
     // Apply Material/Description Grouping if enabled
     if (isGrouped) {
       const groupedMap: Record<string, any> = {};
+      const seenItems = new Set<string | number>();
       
       allFilteredItems.forEach(item => {
+        if (seenItems.has(item.id)) return;
+        seenItems.add(item.id);
+
         const key = `${item.material}|${item.descricao}`;
         if (!groupedMap[key]) {
           groupedMap[key] = {
@@ -818,7 +826,7 @@ const AuditDetailsPage: React.FC = () => {
             count: 0,
             numeroNF: 'Vários',
             empresa: 'Várias',
-            arquivo: 'Vários',
+            arquivo: 'Várias',
             tipoMaterial: item.tipoMaterial,
             categoriaNF: item.categoriaNF,
             origemMaterial: item.origemMaterial,
@@ -1871,6 +1879,32 @@ const AuditDetailsPage: React.FC = () => {
               className={`pl-10 pr-4 py-2.5 rounded-xl text-sm transition-all focus:ring-2 outline-none border w-full sm:w-64 ${darkMode ? 'bg-slate-900 border-slate-800 text-slate-200 focus:ring-[#8DC63F]/50' : 'bg-slate-50 border-slate-200 focus:bg-white focus:ring-[#8DC63F]/30 text-slate-700'}`}
             />
           </div>
+          <ColumnToggleDropdown showColunas={showColunas} setShowColunas={setShowColunas} darkMode={darkMode} />
+          {selectedItems.size > 0 && (
+            <div className="flex gap-2">
+              <button 
+                onClick={() => {
+                  bulkAproveDivergencia(Array.from(selectedItems));
+                  setSelectedItems(new Set());
+                }}
+                className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-green-600/90 text-white text-xs font-bold hover:bg-green-700 transition-all"
+              >
+                <Check className="w-3 h-3" /> Aprovar ({selectedItems.size})
+              </button>
+              <button 
+                onClick={() => {
+                  const motivo = prompt("Motivo da rejeição em massa:");
+                  if (motivo) {
+                      bulkRejeitarDivergencia(Array.from(selectedItems), motivo);
+                      setSelectedItems(new Set());
+                  }
+                }}
+                className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-red-600/90 text-white text-xs font-bold hover:bg-red-700 transition-all"
+              >
+                <X className="w-3 h-3" /> Rejeitar ({selectedItems.size})
+              </button>
+            </div>
+          )}
           <div className="flex items-center gap-2">
             <div className="relative group">
               <Tooltip content="Exportar dados para Excel" darkMode={darkMode}>

@@ -171,6 +171,7 @@ export interface StockPosition {
   description: string;
   plant: string;
   quantity: number;
+  rawData?: any[];
 }
 
 export interface MovementColumnMapping {

@@ -56,6 +56,8 @@ self.onmessage = async (e) => {
     const allMovements: any[] = [];
     const allInitial: any[] = [];
     const allFinal: any[] = [];
+    const initialHeaders: any[] = [];
+    const finalHeaders: any[] = [];
     
     const readOptions: XLSX.ParsingOptions = { type: 'array', dense: true };
 
@@ -159,12 +161,6 @@ self.onmessage = async (e) => {
         }
       } else {
         // Lógica de Posição de Estoque (LAYOUT A-O)
-        // A8: Cód Material (0)
-        // B: Descrição (1)
-        // E: Centro (4)
-        // L: Estoque Final (11)
-        
-        // Detectar início dos dados e identificar colunas
         let dataStartIdx = 0;
         let idxMat = 0;
         let idxDesc = 1;
@@ -176,6 +172,9 @@ self.onmessage = async (e) => {
           if (row && row.some(cell => typeof cell === 'string' && cell.toUpperCase().includes('MATERIAL'))) {
             dataStartIdx = i + 1;
             const headers = row;
+            if (fileType === 'initial' && initialHeaders.length === 0) initialHeaders.push(...headers);
+            if (fileType === 'final' && finalHeaders.length === 0) finalHeaders.push(...headers);
+
             const fMat = fuzzyDetect(headers, ['Material', 'Cód.']);
             const fDesc = fuzzyDetect(headers, ['Descrição', 'Texto Breve']);
             const fPlant = fuzzyDetect(headers, ['Centro', 'Plant', 'Plnt']);
@@ -199,7 +198,8 @@ self.onmessage = async (e) => {
             material: String(row[idxMat] || '').trim(),
             description: String(row[idxDesc] || '').trim(),
             plant: currentPlant,
-            quantity: parseNumber(row[idxQtd])
+            quantity: parseNumber(row[idxQtd]),
+            rawData: row // Store the whole row for export
           };
 
           if (fileType === 'initial') allInitial.push(item);
@@ -218,7 +218,9 @@ self.onmessage = async (e) => {
       type: 'done', 
       movements: allMovements,
       initial: allInitial,
-      final: allFinal
+      final: allFinal,
+      initialHeaders,
+      finalHeaders
     });
   } catch (err: any) {
     self.postMessage({ type: 'error', message: err.message });

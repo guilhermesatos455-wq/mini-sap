@@ -38,7 +38,6 @@ const ColumnMapping: React.FC<ColumnMappingProps> = ({
 
   const ckm3Fields = [
     { label: 'Material', key: 'ckm3Mat' },
-    { label: 'Custo', key: 'ckm3Custo' },
     { label: 'Centro', key: 'ckm3Centro' },
     { label: 'Descrição', key: 'ckm3Desc' },
     { label: 'Qtde. Jan (K)', key: 'ckm3QtdJan' },

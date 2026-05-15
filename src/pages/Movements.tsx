@@ -24,6 +24,7 @@ import {
 } from 'lucide-react';
 import { useAudit } from '../context/AuditContext';
 import { motion, AnimatePresence } from 'framer-motion';
+import XLSX from 'xlsx-js-style';
 import { safeLocalStorageSet } from '../utils/storageUtils';
 import { 
   BarChart, 
@@ -53,6 +54,8 @@ const MovementsPage: React.FC = () => {
     setFinalStockFiles,
     initialStockPositions,
     finalStockPositions,
+    initialStockHeaders,
+    finalStockHeaders,
     selectedPlant,
     setSelectedPlant,
     movementColumnMapping,
@@ -311,6 +314,254 @@ const MovementsPage: React.FC = () => {
 
   const totalPagesRecon = Math.ceil(reconciliationData.length / rowsPerPage);
 
+  const handleExportMB51Excel = () => {
+    const dataToExport = activeTab === 'list' ? filteredMovements : movements;
+    if (dataToExport.length === 0) {
+      addToast('Não há movimentos para exportar.', 'info');
+      return;
+    }
+
+    const wb = XLSX.utils.book_new();
+    const headerStyle = {
+      fill: { fgColor: { rgb: "78AF32" } },
+      font: { color: { rgb: "FFFFFF" }, bold: true },
+      alignment: { horizontal: "center", vertical: "center" },
+      border: {
+        top: { style: "thin", color: { rgb: "3F5D1A" } },
+        bottom: { style: "thin", color: { rgb: "3F5D1A" } },
+        left: { style: "thin", color: { rgb: "3F5D1A" } },
+        right: { style: "thin", color: { rgb: "3F5D1A" } }
+      }
+    };
+
+    const dataStyle = { font: { sz: 10 }, alignment: { vertical: "center" } };
+
+    const headers = [
+      "Material", "Texto Breve", "Tipo Mov", "Depósito", "Data Lanc", 
+      "Lote", "Quantidade", "UM", "Valor", "Nf-e", "Pedido"
+    ];
+
+    const rows = dataToExport.map(m => [
+      m.material, m.description, m.movementType, m.storageLocation, m.postingDate,
+      m.batch, m.quantity, m.unit, m.value, m.reference, m.order
+    ]);
+
+    const ws = XLSX.utils.aoa_to_sheet([headers, ...rows]);
+    
+    // Apply header style
+    const range = XLSX.utils.decode_range(ws['!ref']!);
+    for (let C = range.s.c; C <= range.e.c; ++C) {
+      const cell = XLSX.utils.encode_cell({ r: 0, c: C });
+      if (ws[cell]) ws[cell].s = headerStyle;
+    }
+
+    XLSX.utils.book_append_sheet(wb, ws, "Movimentos MB51");
+    XLSX.writeFile(wb, `Movimentos_MB51_${new Date().toISOString().split('T')[0]}.xlsx`);
+    addToast('Lista de movimentos exportada!', 'success');
+  };
+
+  const handleExportReconciliationExcel = () => {
+    if (reconciliationData.length === 0) {
+      addToast('Não há dados de conciliação para exportar.', 'info');
+      return;
+    }
+
+    const wb = XLSX.utils.book_new();
+    
+    // --- Styles Definition ---
+    const headerStyle = {
+      fill: { fgColor: { rgb: "78AF32" } },
+      font: { color: { rgb: "FFFFFF" }, bold: true, sz: 11 },
+      alignment: { horizontal: "center", vertical: "center" },
+      border: {
+        top: { style: "thin", color: { rgb: "3F5D1A" } },
+        bottom: { style: "thin", color: { rgb: "3F5D1A" } },
+        left: { style: "thin", color: { rgb: "3F5D1A" } },
+        right: { style: "thin", color: { rgb: "3F5D1A" } }
+      }
+    };
+
+    // --- NEW: SHEET 0: ESTOQUE INICIAL ---
+    if (initialStockPositions.length > 0) {
+      const rowsInitialRaw = initialStockPositions.map(p => p.rawData || [p.material, p.description, p.plant, p.quantity]);
+      const wsInitial = XLSX.utils.aoa_to_sheet([initialStockHeaders.length > 0 ? initialStockHeaders : ["Material", "Descrição", "Centro", "Quantidade"], ...rowsInitialRaw]);
+      XLSX.utils.book_append_sheet(wb, wsInitial, "ESTOQUE INICIAL-Anterior");
+    }
+
+    // --- NEW: SHEET 0.1: ESTOQUE FINAL ---
+    if (finalStockPositions.length > 0) {
+      const rowsFinalRaw = finalStockPositions.map(p => p.rawData || [p.material, p.description, p.plant, p.quantity]);
+      const wsFinal = XLSX.utils.aoa_to_sheet([finalStockHeaders.length > 0 ? finalStockHeaders : ["Material", "Descrição", "Centro", "Quantidade"], ...rowsFinalRaw]);
+      XLSX.utils.book_append_sheet(wb, wsFinal, "ESTOQUE FINAL-MES ATUAL");
+    }
+
+    const dataStyle = {
+      font: { sz: 10 },
+      alignment: { vertical: "center" },
+      border: {
+        top: { style: "thin", color: { rgb: "EEEEEE" } },
+        bottom: { style: "thin", color: { rgb: "EEEEEE" } },
+        left: { style: "thin", color: { rgb: "EEEEEE" } },
+        right: { style: "thin", color: { rgb: "EEEEEE" } }
+      }
+    };
+
+    const numberStyle = {
+      ...dataStyle,
+      alignment: { horizontal: "right", vertical: "center" },
+      numFmt: "#,##0.00"
+    };
+
+    const highlightStyle = {
+      ...numberStyle,
+      fill: { fgColor: { rgb: "F0F9EB" } },
+      font: { bold: true, sz: 10, color: { rgb: "2D5A27" } }
+    };
+
+    const diffStyle = (val: number) => ({
+      ...numberStyle,
+      fill: { fgColor: { rgb: Math.abs(val) > 0.01 ? "FEE2ED" : "ECFDF5" } },
+      font: { bold: true, color: { rgb: Math.abs(val) > 0.01 ? "991B1B" : "065F46" } }
+    });
+
+    // --- SHEET 1: CONCILIAÇÃO (RESUMO) ---
+    const headers = [
+      "Material", "Descrição", "Est. Inicial (E8)", "Prod. (G8)", "Dev. (H8)", 
+      "Aju. Ent (I8)", "Tot. Ent (J8)", "Aju. Saí (K8)", "Out. Saí (L8)", 
+      "Bonif. (M8)", "Venda (N8)", "Perda (O8)", "Req. (P8)", "Tot. Saí (Q8)", 
+      "Subtotal (R8)", "Est. Real (S8)", "Diferença (T8)"
+    ];
+
+    const rows = reconciliationData.map(m => [
+      m.material, 
+      m.description, 
+      m.initial, m.prod, m.dev, m.adjIn, m.totalIn,
+      m.adjOut, m.otherOut, m.bonif, m.sale, m.loss, m.req, m.totalOut,
+      m.subtotal, m.finalStockReal, m.difference
+    ]);
+
+    const wsSummary = XLSX.utils.aoa_to_sheet([headers, ...rows]);
+    const rangeSummary = XLSX.utils.decode_range(wsSummary['!ref']!);
+
+    for (let R = rangeSummary.s.r; R <= rangeSummary.e.r; ++R) {
+      for (let C = rangeSummary.s.c; C <= rangeSummary.e.c; ++C) {
+        const cellRef = XLSX.utils.encode_cell({ r: R, c: C });
+        if (!wsSummary[cellRef]) continue;
+
+        if (R === 0) {
+          wsSummary[cellRef].s = headerStyle;
+        } else {
+          const excelRow = R + 1;
+          const val = wsSummary[cellRef].v;
+          const isNum = typeof val === 'number';
+
+          // Adicionar fórmulas dinâmicas
+          if (C === 6) wsSummary[cellRef].f = `SUM(D${excelRow}:F${excelRow})`;
+          if (C === 13) wsSummary[cellRef].f = `SUM(H${excelRow}:M${excelRow})`;
+          if (C === 14) wsSummary[cellRef].f = `C${excelRow}+G${excelRow}+N${excelRow}`;
+          if (C === 16) wsSummary[cellRef].f = `O${excelRow}-P${excelRow}`;
+
+          if (isNum || wsSummary[cellRef].f) {
+            if (C === 16) {
+              wsSummary[cellRef].s = diffStyle(val);
+            } else if ([6, 13, 14, 15].includes(C)) {
+              wsSummary[cellRef].s = highlightStyle;
+            } else {
+              wsSummary[cellRef].s = numberStyle;
+            }
+          } else {
+            wsSummary[cellRef].s = dataStyle;
+          }
+        }
+      }
+    }
+
+    wsSummary['!cols'] = [
+      { wch: 15 }, { wch: 40 }, { wch: 15 }, { wch: 12 }, { wch: 12 },
+      { wch: 12 }, { wch: 15 }, { wch: 12 }, { wch: 12 },
+      { wch: 12 }, { wch: 12 }, { wch: 12 }, { wch: 12 }, { wch: 15 },
+      { wch: 15 }, { wch: 15 }, { wch: 12 }
+    ];
+
+    XLSX.utils.book_append_sheet(wb, wsSummary, "CONCILIAÇÃO");
+
+    // --- DETAILED SHEETS ---
+    const categories = [
+      { name: "1_PRODUÇÃO_COMPRAS", id: 'PRODUCTION_PURCHASE' },
+      { name: "2_DEVOLUÇÃO", id: 'RETURN_ENTRY' },
+      { name: "AJUSTE_ENTRADA", id: 'ADJUSTMENT_ENTRY' },
+      { name: "AJUSTE_SAÍDA", id: 'ADJUSTMENT_EXIT' },
+      { name: "OUTRAS_SAÍDAS_SAC", id: 'OTHER_EXIT' },
+      { name: "BONIFICAÇÃO", id: 'BONIFICATION' },
+      { name: "VENDA", id: 'SALE' },
+      { name: "PERDA", id: 'LOSS' },
+      { name: "REQUISIÇÃO", id: 'REQUISITION' },
+      { name: "BASE_DADOS_COMPLETO", id: 'ALL' }
+    ];
+
+    const mb51Headers = ["Material", "Texto Breve", "Tipo Mov", "Depósito", "Data Lanc", "Lote", "Quantidade", "UM", "Valor", "Nf-e"];
+
+    categories.forEach(cat => {
+      let filtered: any[] = [];
+      
+      if (cat.id === 'ALL') {
+        filtered = movements;
+      } else {
+        filtered = movements.filter(m => {
+          const type = movementTypes.find(t => t.code === m.movementType);
+          if (!type) return false;
+          
+          let mCat = type.category;
+          // Dynamic logic for specific codes (as in the reconciliation logic)
+          if (['309', '325', '321'].includes(m.movementType)) {
+            mCat = m.quantity >= 0 ? 'ADJUSTMENT_ENTRY' : 'ADJUSTMENT_EXIT';
+          }
+          
+          return mCat === cat.id;
+        });
+      }
+
+      if (filtered.length > 0) {
+        const catRows = filtered.map(m => [
+          m.material, m.description, m.movementType, m.storageLocation, m.postingDate, m.batch, m.quantity, m.unit, m.value, m.reference
+        ]);
+        const wsCat = XLSX.utils.aoa_to_sheet([mb51Headers, ...catRows]);
+        const rangeCat = XLSX.utils.decode_range(wsCat['!ref']!);
+
+        for (let R = rangeCat.s.r; R <= rangeCat.e.r; ++R) {
+          for (let C = rangeCat.s.c; C <= rangeCat.e.c; ++C) {
+            const cellRef = XLSX.utils.encode_cell({ r: R, c: C });
+            if (!wsCat[cellRef]) continue;
+
+            if (R === 0) {
+              wsCat[cellRef].s = headerStyle;
+            } else {
+              const val = wsCat[cellRef].v;
+              if (typeof val === 'number') {
+                if (C === 6 || C === 8) {
+                  wsCat[cellRef].s = numberStyle;
+                } else {
+                  wsCat[cellRef].s = dataStyle;
+                }
+              } else {
+                wsCat[cellRef].s = dataStyle;
+              }
+            }
+          }
+        }
+
+        wsCat['!cols'] = [
+          { wch: 15 }, { wch: 35 }, { wch: 10 }, { wch: 10 }, { wch: 12 }, 
+          { wch: 12 }, { wch: 12 }, { wch: 8 }, { wch: 15 }, { wch: 15 }
+        ];
+        XLSX.utils.book_append_sheet(wb, wsCat, cat.name.substring(0, 31));
+      }
+    });
+
+    XLSX.writeFile(wb, `CONCILIACAO_ESTOQUE_DETALHADA_${new Date().toISOString().split('T')[0]}.xlsx`);
+    addToast('Excel de Conciliação Completo exportado com sucesso!', 'success');
+  };
+
   const goToPageRecon = (page: number) => {
     setCurrentPageRecon(Math.max(1, Math.min(page, totalPagesRecon)));
   };
@@ -334,7 +585,10 @@ const MovementsPage: React.FC = () => {
         </div>
 
         <div className="flex items-center gap-3">
-          <button className={`flex items-center gap-2 px-4 py-2.5 rounded-2xl text-xs font-black uppercase tracking-widest transition-all ${darkMode ? 'bg-slate-800 text-slate-300 hover:bg-slate-700' : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50 shadow-sm'}`}>
+          <button 
+            onClick={handleExportMB51Excel}
+            className={`flex items-center gap-2 px-4 py-2.5 rounded-2xl text-xs font-black uppercase tracking-widest transition-all ${darkMode ? 'bg-slate-800 text-slate-300 hover:bg-slate-700' : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50 shadow-sm'}`}
+          >
             <Download className="w-4 h-4" /> Exportar MB51
           </button>
           <button className="flex items-center gap-2 px-6 py-2.5 rounded-2xl bg-[#8DC63F] text-white text-xs font-black uppercase tracking-widest hover:bg-[#78AF32] transition-all shadow-lg shadow-[#8DC63F]/20">
@@ -787,6 +1041,12 @@ const MovementsPage: React.FC = () => {
                 <BarChart3 className="w-4 h-4" /> 
                 {reconciliationData.length} Materiais
               </div>
+              <button 
+                onClick={handleExportReconciliationExcel}
+                className={`px-4 py-3 rounded-2xl border flex items-center gap-2 text-xs font-black uppercase tracking-widest transition-all ${darkMode ? 'bg-slate-950 border-slate-800 text-emerald-400 hover:border-emerald-500/50 hover:bg-emerald-500/5' : 'bg-emerald-50 border-emerald-100 text-emerald-600 hover:bg-emerald-100 shadow-sm'}`}
+              >
+                <Download className="w-4 h-4" /> Exportar Conciliação
+              </button>
             </div>
 
             {/* Pagination for Reconciliation */}

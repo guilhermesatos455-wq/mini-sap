@@ -27,7 +27,7 @@ import { useMovementsWorker } from '../hooks/useMovementsWorker';
 import { mergeItemData, recalculateTotals, persistComment, calculateItemImpact } from '../utils/auditUtils';
 import { safeLocalStorageSet, safeLocalStorageGet, setLargeData, getLargeData } from '../utils/storageUtils';
 
-import { Divergencia, SAPMovementType, MaterialMovement, AuditRecipe, StockPosition, MovementColumnMapping } from '../types/audit';
+import { Divergencia, SAPMovementType, MaterialMovement, AuditRecipe, StockPosition, MovementColumnMapping, ShowColunas } from '../types/audit';
 
 interface AuditContextType {
   darkMode: boolean;
@@ -107,6 +107,8 @@ interface AuditContextType {
   setShowBranding: (b: boolean) => void;
   showTaxMatrix: boolean;
   setShowTaxMatrix: (b: boolean) => void;
+  showColunas: ShowColunas;
+  setShowColunas: React.Dispatch<React.SetStateAction<ShowColunas>>;
   filterHideZeroes: boolean;
   setFilterHideZeroes: (b: boolean) => void;
   isPresentationMode: boolean;
@@ -128,6 +130,8 @@ interface AuditContextType {
   setFinalStockFiles: (files: File[]) => void;
   initialStockPositions: StockPosition[];
   finalStockPositions: StockPosition[];
+  initialStockHeaders: any[];
+  finalStockHeaders: any[];
   selectedPlant: '1001' | '1005';
   setSelectedPlant: (plant: '1001' | '1005') => void;
   movementColumnMapping: MovementColumnMapping;
@@ -161,7 +165,9 @@ interface AuditContextType {
   updateDivergencia: (id: number | string, newData: Partial<Divergencia>) => void;
   bulkUpdateDivergencias: (ids: (number | string)[], newData: Partial<Divergencia>) => void;
   aproveDivergencia: (id: number | string) => void;
+  bulkAproveDivergencia: (ids: (number | string)[]) => void;
   rejeitarDivergencia: (id: number | string, motivo: string) => void;
+  bulkRejeitarDivergencia: (ids: (number | string)[], motivo: string) => void;
   handleReset: () => void;
   iniciarProcessamento: () => Promise<void>;
   recipes: AuditRecipe[];
@@ -456,6 +462,26 @@ export const AuditProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     const saved = safeLocalStorageGet<any>('miniSapSettings', null);
     return saved ? saved.showTaxMatrix ?? true : true;
   });
+  const [showColunas, setShowColunas] = useState<ShowColunas>(() => {
+    return safeLocalStorageGet('miniSapShowColunas', {
+      empresa: false,
+      numeroNF: false,
+      tipoMaterial: false,
+      categoriaNF: false,
+      origemMaterial: false,
+      dataLancamento: false,
+      precoSemFrete: false,
+      precoComFrete: false,
+      valorLiqSemFrete: false,
+      valorLiqComFrete: false,
+      valorTotalSemFrete: false,
+      valorTotalComFrete: false,
+    });
+  });
+
+  useEffect(() => {
+    safeLocalStorageSet('miniSapShowColunas', showColunas);
+  }, [showColunas]);
   const [filterHideZeroes, setFilterHideZeroes] = useState(false);
   
   // Load result from IndexedDB on boot
@@ -500,7 +526,6 @@ export const AuditProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         initialStock = legacy;
         if (legacy.length > 0) {
           await setLargeData('miniSapInitialStock', legacy);
-          // Optional: clear legacy to save space, but keeping for safety in this turn
         }
       }
 
@@ -530,11 +555,16 @@ export const AuditProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         { role: 'assistant', content: 'Olá! Sou o NatuAssist, seu assistente de auditoria inteligente. Como posso ajudar você hoje?' }
       ]);
 
+      const initialHeaders = await getLargeData('miniSapInitialHeaders', []);
+      const finalHeaders = await getLargeData('miniSapFinalHeaders', []);
+
       setDecisionHistory(history);
       setJustificationBase(base);
       setAiMessages(msgs);
       setInitialStockPositions(initialStock || []);
       setFinalStockPositions(finalStock || []);
+      setInitialStockHeaders(initialHeaders || []);
+      setFinalStockHeaders(finalHeaders || []);
       setMovements(mvts || []);
     };
     loadLargeData();
@@ -668,6 +698,8 @@ export const AuditProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const [finalStockFiles, setFinalStockFiles] = useState<File[]>([]);
   const [initialStockPositions, setInitialStockPositions] = useState<StockPosition[]>([]);
   const [finalStockPositions, setFinalStockPositions] = useState<StockPosition[]>([]);
+  const [initialStockHeaders, setInitialStockHeaders] = useState<any[]>([]);
+  const [finalStockHeaders, setFinalStockHeaders] = useState<any[]>([]);
   const [selectedPlant, setSelectedPlant] = useState<'1001' | '1005'>('1001');
 
   const [movementColumnMapping, setMovementColumnMapping] = useState<MovementColumnMapping>(() => {
@@ -713,6 +745,14 @@ export const AuditProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       if (result.final) {
         setFinalStockPositions(result.final);
         await setLargeData('miniSapFinalStock', result.final);
+      }
+      if (result.initialHeaders) {
+        setInitialStockHeaders(result.initialHeaders);
+        await setLargeData('miniSapInitialHeaders', result.initialHeaders);
+      }
+      if (result.finalHeaders) {
+        setFinalStockHeaders(result.finalHeaders);
+        await setLargeData('miniSapFinalHeaders', result.finalHeaders);
       }
       if (result.movements) {
         setMovements(result.movements);
@@ -1076,38 +1116,54 @@ export const AuditProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const aproveDivergencia = useCallback((id: number | string) => {
     const userAudit = aiUser ? { nome: aiUser.nome, email: aiUser.email || '', data: new Date().toISOString() } : { nome: 'Auditor Externo', email: 'auditor@natulab.com.br', data: new Date().toISOString() };
     
+    // Obter o item existente para anexar o log
+    const existingItem = resultado?.divergencias.find((d: Divergencia) => d.id === id) || 
+                         resultado?.todosOsItens.find((d: Divergencia) => d.id === id);
+
     updateDivergencia(id, {
       status: 'Aprovado',
       aprovacaoStatus: 'Aprovado',
       aprovadoPor: userAudit,
       rejeitadoPor: null,
-      auditLogs: [{
+      auditLogs: [...(existingItem?.auditLogs || []), {
         timestamp: new Date().toISOString(),
         user: userAudit.nome,
         action: 'Aprovação de Auditoria',
         currentStatus: 'Aprovado'
       }]
     } as any);
-    addToast('Divergência aprovada com sucesso!', 'success');
-  }, [aiUser, updateDivergencia, addToast]);
+  }, [aiUser, updateDivergencia, resultado]);
+
+  const bulkAproveDivergencia = useCallback((ids: (number | string)[]) => {
+    ids.forEach(id => aproveDivergencia(id));
+    addToast(`${ids.length} divergências aprovadas com sucesso!`, 'success');
+  }, [aproveDivergencia, addToast]);
 
   const rejeitarDivergencia = useCallback((id: number | string, motivo: string) => {
     const userAudit = aiUser ? { nome: aiUser.nome, email: aiUser.email || '', data: new Date().toISOString() } : { nome: 'Auditor Externo', email: 'auditor@natulab.com.br', data: new Date().toISOString() };
     
+    // Obter o item existente
+    const existingItem = resultado?.divergencias.find((d: Divergencia) => d.id === id) || 
+                         resultado?.todosOsItens.find((d: Divergencia) => d.id === id);
+
     updateDivergencia(id, {
       status: 'Ajuste Rejeitado',
       aprovacaoStatus: 'Rejeitado',
       rejeitadoPor: { ...userAudit, motivo },
       aprovadoPor: null,
-      auditLogs: [{
+      auditLogs: [...(existingItem?.auditLogs || []), {
         timestamp: new Date().toISOString(),
         user: userAudit.nome,
         action: `Rejeição de Auditoria: ${motivo}`,
         currentStatus: 'Ajuste Rejeitado'
       }]
     } as any);
-    addToast('Ajuste rejeitado e devolvido para análise.', 'info');
-  }, [aiUser, updateDivergencia, addToast]);
+  }, [aiUser, updateDivergencia, resultado]);
+
+  const bulkRejeitarDivergencia = useCallback((ids: (number | string)[], motivo: string) => {
+    ids.forEach(id => rejeitarDivergencia(id, motivo));
+    addToast(`${ids.length} divergências rejeitadas com sucesso!`, 'info');
+  }, [rejeitarDivergencia, addToast]);
 
   useEffect(() => {
     const settingsSaved = safeLocalStorageSet('miniSapSettings', {
@@ -1216,6 +1272,7 @@ export const AuditProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     showRpaAutomation, setShowRpaAutomation,
     showBranding, setShowBranding,
     showTaxMatrix, setShowTaxMatrix,
+    showColunas, setShowColunas,
     filterHideZeroes, setFilterHideZeroes,
     isPresentationMode, setIsPresentationMode,
     taxMatrix, setTaxMatrix,
@@ -1232,13 +1289,14 @@ export const AuditProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     registeredUsers, registerUser, updateUser, getUser,
     bannedDevices, banDevice, unbanDevice,
     updateDivergencia, bulkUpdateDivergencias,
-    aproveDivergencia, rejeitarDivergencia,
+    aproveDivergencia, bulkAproveDivergencia, rejeitarDivergencia, bulkRejeitarDivergencia,
     handleReset,
     iniciarProcessamento,
     movementFiles, setMovementFiles,
     initialStockFiles, setInitialStockFiles,
     finalStockFiles, setFinalStockFiles,
     initialStockPositions, finalStockPositions,
+    initialStockHeaders, finalStockHeaders,
     selectedPlant, setSelectedPlant,
     movementColumnMapping, setMovementColumnMapping,
     isProcessingMovements, movementProcessingStatus, movementProgressPercent,
@@ -1257,6 +1315,7 @@ export const AuditProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     showRpaAutomation,
     showBranding,
     showTaxMatrix,
+    showColunas,
     filterHideZeroes,
     isPresentationMode, 
     taxMatrix, decisionHistory, justificationBase,
@@ -1276,6 +1335,8 @@ export const AuditProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     finalStockFiles, 
     initialStockPositions, 
     finalStockPositions,
+    initialStockHeaders,
+    finalStockHeaders,
     selectedPlant,
     movementColumnMapping,
     isProcessingMovements, movementProcessingStatus, movementProgressPercent,
