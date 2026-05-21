@@ -14,6 +14,7 @@ import {
 import { motion, AnimatePresence } from 'framer-motion';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell } from 'recharts';
 import { useAudit } from '../context/AuditContext';
+import { useMAPCalculator } from '../hooks/useMAPCalculator';
 
 const PriceSimulator: React.FC = () => {
   const { resultado, darkMode, currency } = useAudit();
@@ -29,6 +30,13 @@ const PriceSimulator: React.FC = () => {
     pis: 1.65,
     cofins: 7.6,
     freight: 0
+  });
+  const [activeTaxes, setActiveTaxes] = useState({
+    ipi: true,
+    icms: true,
+    pis: true,
+    cofins: true,
+    freight: true,
   });
   const [searchTerm, setSearchTerm] = useState('');
 
@@ -83,35 +91,35 @@ const PriceSimulator: React.FC = () => {
     }
   }, [selectedData]);
 
-  const simulation = useMemo(() => {
-    if (!selectedData || newQty <= 0 || newPrice <= 0) return null;
-
-    const currentTotal = currentQty * basePrice;
+  // ANCORAGEM DE PREÇOS HISTÓRICOS
+  const historicalAnchors = useMemo(() => {
+    if (!selectedMaterial || !resultado?.todosOsItens) return null;
     
-    // Brazilian Tax Logic for PMM (Net Purchase Price)
-    // 1. Gross Price with IPI
-    const priceWithIPI = newPrice * (1 + taxes.ipi / 100);
-    // 2. Add Freight per unit
-    const unitFreight = taxes.freight / (newQty || 1);
-    const totalUnitCost = priceWithIPI + unitFreight;
-    // 3. Subtract deductible taxes (ICMS, PIS, COFINS)
-    const deductiblePct = (taxes.icms + taxes.pis + taxes.cofins) / 100;
-    const netPurchasePrice = totalUnitCost * (1 - deductiblePct);
+    const movements = resultado.todosOsItens.filter((item: any) => 
+      (item.material || item.Material || item.codigo) === selectedMaterial && 
+      (typeof item.valor === 'number' ? item.valor : parseFloat(item.valor)) > 0
+    );
 
-    const newTotal = newQty * netPurchasePrice;
-    const totalQty = currentQty + newQty;
-    const newPMM = (currentTotal + newTotal) / totalQty;
-    const variation = basePrice > 0 ? ((newPMM / basePrice) - 1) * 100 : 0;
+    if (movements.length === 0) return null;
 
+    const prices = movements.map((m: any) => parseFloat(m.valor)).filter((p: number) => !isNaN(p));
+    
     return {
-      newPMM,
-      variation,
-      totalQty,
-      netPurchasePrice,
-      totalUnitCost,
-      impact: newPMM - basePrice
+      min: Math.min(...prices),
+      max: Math.max(...prices),
+      last: prices[prices.length - 1]
     };
-  }, [selectedData, currentQty, basePrice, newQty, newPrice, taxes]);
+  }, [selectedMaterial, resultado]);
+
+  const { simulation, sensitivityAnalysis } = useMAPCalculator(
+    currentQty,
+    basePrice,
+    newQty,
+    newPrice,
+    taxes,
+    activeTaxes,
+    selectedData
+  );
 
   const formatoMoeda = new Intl.NumberFormat('pt-BR', {
     style: 'currency',
@@ -223,7 +231,7 @@ const PriceSimulator: React.FC = () => {
                     className={`w-full pl-10 pr-4 py-3 border rounded-xl text-sm transition-all outline-none focus:ring-2 ${darkMode ? 'bg-slate-800 border-slate-700 text-slate-100 focus:ring-[#8DC63F]/50' : 'border-gray-100 focus:ring-[#8DC63F]/50'}`}
                   />
                 </div>
-                {targetSalesPrice > 0 && simulation.newPMM > 0 && (
+                {targetSalesPrice > 0 && simulation?.newPMM > 0 && (
                   <div className="mt-3 p-2 rounded-lg bg-slate-800 text-center">
                     <p className="text-[9px] uppercase tracking-widest opacity-60">Margem Bruta</p>
                     <span className={`text-lg font-black ${((targetSalesPrice - simulation.newPMM) / targetSalesPrice) * 100 < 10 ? 'text-red-500' : 'text-[#8DC63F]'}`}>
@@ -232,43 +240,98 @@ const PriceSimulator: React.FC = () => {
                   </div>
                 )}
               </div>
+
+              {/* ANCHORS UI */}
+              {historicalAnchors && (
+                <div className="pt-4 border-t border-dashed border-slate-700/50">
+                  <label className="block text-[10px] font-black uppercase tracking-widest text-[#8DC63F] mb-3">Ancoragem Histórica</label>
+                  <div className="grid grid-cols-3 gap-2">
+                    {[
+                      { label: 'Min', val: historicalAnchors.min },
+                      { label: 'Max', val: historicalAnchors.max },
+                      { label: 'Ult', val: historicalAnchors.last }
+                    ].map(anchor => (
+                      <button 
+                        key={anchor.label}
+                        onClick={() => setNewPrice(anchor.val)}
+                        className="p-2 rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-700 text-center transition-colors"
+                      >
+                        <p className="text-[9px] opacity-50 uppercase">{anchor.label}</p>
+                        <p className="text-xs font-bold text-slate-100">{anchor.val.toFixed(2)}</p>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
           </section>
 
           <section className={`p-6 rounded-2xl border ${darkMode ? 'bg-slate-900 border-slate-800' : 'bg-white border-gray-200'}`}>
             <h3 className="text-lg font-bold mb-6 flex items-center gap-2">
               <TrendingUp className="w-5 h-5 text-brand-green" />
-              3. Impostos e Frete
+              3. Impostos e Frete (Ativar/Desativar)
             </h3>
             
             <div className="grid grid-cols-2 gap-4">
               {[
-                { label: 'IPI (%)', key: 'ipi' },
-                { label: 'ICMS (%)', key: 'icms' },
-                { label: 'PIS (%)', key: 'pis' },
-                { label: 'COFINS (%)', key: 'cofins' },
+                { label: 'IPI', key: 'ipi' },
+                { label: 'ICMS', key: 'icms' },
+                { label: 'PIS', key: 'pis' },
+                { label: 'COFINS', key: 'cofins' },
+                { label: 'Frete', key: 'freight' },
               ].map(tax => (
-                <div key={tax.key}>
-                  <label className="block text-[10px] font-black uppercase text-slate-500 mb-1">{tax.label}</label>
-                  <input 
-                    type="number"
-                    value={(taxes as any)[tax.key]}
-                    onChange={(e) => setTaxes(prev => ({ ...prev, [tax.key]: Number(e.target.value) }))}
-                    className={`w-full px-3 py-2 border rounded-xl text-xs outline-none ${darkMode ? 'bg-slate-800 border-slate-700' : 'bg-gray-50 border-gray-100'}`}
-                  />
+                <div key={tax.key} className={`p-3 rounded-xl border ${darkMode ? 'bg-slate-800 border-slate-700' : 'bg-gray-50 border-gray-100'}`}>
+                  <label className="flex items-center gap-2 cursor-pointer text-xs font-bold">
+                    <input 
+                      type="checkbox"
+                      checked={activeTaxes[tax.key as keyof typeof activeTaxes]}
+                      onChange={(e) => setActiveTaxes(prev => ({ ...prev, [tax.key]: e.target.checked }))}
+                      className="accent-brand-green"
+                    />
+                    {tax.label}
+                  </label>
+                  {tax.key !== 'freight' && (
+                    <input 
+                      type="number"
+                      value={(taxes as any)[tax.key]}
+                      onChange={(e) => setTaxes(prev => ({ ...prev, [tax.key]: Number(e.target.value) }))}
+                      className={`w-full mt-2 px-2 py-1 border rounded text-xs outline-none ${darkMode ? 'bg-slate-700 border-slate-600' : 'bg-white border-gray-200'}`}
+                      disabled={!activeTaxes[tax.key as keyof typeof activeTaxes]}
+                    />
+                  )}
+                  {tax.key === 'freight' && (
+                     <input 
+                      type="number"
+                      value={taxes.freight}
+                      onChange={(e) => setTaxes(prev => ({ ...prev, freight: Number(e.target.value) }))}
+                      className={`w-full mt-2 px-2 py-1 border rounded text-xs outline-none ${darkMode ? 'bg-slate-700 border-slate-600' : 'bg-white border-gray-200'}`}
+                      disabled={!activeTaxes.freight}
+                    />
+                  )}
                 </div>
               ))}
-              <div className="col-span-2">
-                <label className="block text-[10px] font-black uppercase text-slate-500 mb-1">Custo Total de Frete</label>
-                <input 
-                  type="number"
-                  value={taxes.freight}
-                  onChange={(e) => setTaxes(prev => ({ ...prev, freight: Number(e.target.value) }))}
-                  className={`w-full px-3 py-2 border rounded-xl text-xs outline-none ${darkMode ? 'bg-slate-800 border-slate-700' : 'bg-gray-50 border-gray-100'}`}
-                />
-              </div>
             </div>
           </section>
+
+          {/* Sensitivity Table Added */}
+          {simulation && (
+            <section className={`p-6 rounded-2xl border ${darkMode ? 'bg-slate-900 border-slate-800' : 'bg-white border-gray-200'}`}>
+              <h3 className="text-lg font-bold mb-4 flex items-center gap-2">
+                <BarChart3 className="w-5 h-5 text-brand-green" />
+                Análise de Sensibilidade
+              </h3>
+              <div className="space-y-2">
+                {sensitivityAnalysis.map((item, idx) => (
+                  <div key={idx} className="flex justify-between items-center text-xs">
+                    <span className={item.change === 0 ? "font-bold" : "opacity-60"}>
+                      Preço {item.change > 0 ? '+' : ''}{item.change}%
+                    </span>
+                    <span className="font-mono font-bold">{formatoMoeda.format(item.pmm)}</span>
+                  </div>
+                ))}
+              </div>
+            </section>
+          )}
         </div>
 
         <div className="lg:col-span-2 space-y-6">

@@ -51,6 +51,7 @@ import { StatusBadge } from '../components/AuditDetails/StatusBadge';
 import { TableRowMemo, ExpandedRowMemo } from '../components/AuditDetails/AuditTableRows';
 import { ExportModal } from '../components/AuditDetails/ExportModal';
 import { ColumnToggleDropdown } from '../components/AuditDetails/ColumnToggleDropdown';
+import { AuditTimeline } from '../components/AuditDetails/AuditTimeline';
 import { BulkEditModal } from '../components/AuditDetails/BulkEditModal';
 import { QUICK_EXAMPLES } from '../constants/auditExamples';
 import { EXPORT_COLUMNS, QUICK_EXPORT_COLUMNS } from '../constants/auditConstants';
@@ -1810,7 +1811,26 @@ const AuditDetailsPage: React.FC = () => {
           />
         </Tooltip>
         {selectedItems.size > 0 && (
-          <div className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-brand-green rounded-full border-2 border-white dark:border-slate-800 animate-pulse" />
+          <>
+            <div className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-brand-green rounded-full border-2 border-white dark:border-slate-800 animate-pulse" />
+            <div className="flex items-center gap-2 ml-4">
+              <button 
+                onClick={() => bulkAproveDivergencia(Array.from(selectedItems))}
+                className="px-2 py-1 bg-[#8DC63F] text-slate-900 rounded text-[9px] font-bold uppercase hover:opacity-90"
+              >
+                Aprovar ({selectedItems.size})
+              </button>
+              <button 
+                onClick={() => {
+                  const motivo = prompt('Motivo da rejeição:');
+                  if (motivo) bulkRejeitarDivergencia(Array.from(selectedItems), motivo);
+                }}
+                className="px-2 py-1 bg-red-500 text-white rounded text-[9px] font-bold uppercase hover:opacity-90"
+              >
+                Rejeitar ({selectedItems.size})
+              </button>
+            </div>
+          </>
         )}
       </div>
       <div className={`flex items-center justify-center shrink-0 w-80 h-full sticky left-10 z-40 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)] ${darkMode ? 'bg-slate-800' : 'bg-gray-100'}`}>
@@ -2328,8 +2348,11 @@ const AuditDetailsPage: React.FC = () => {
                         </div>
                       </div>
 
+                                          <div className="grid grid-cols-2 gap-4 mb-4">
+                      <div className="space-y-1.5 col-span-2">
+                        <label className={`text-[10px] font-black uppercase tracking-wider ml-1 ${darkMode ? 'text-slate-400' : 'text-gray-500'}`}>Auditoria por Período</label>
+                      </div>
                       <div className="space-y-1.5">
-                        <label className={`text-[9px] font-bold uppercase tracking-wider ml-1 ${darkMode ? 'text-slate-500' : 'text-gray-400'}`}>Início do Período</label>
                         <input 
                           type="date"
                           value={filterDataInicio}
@@ -2337,9 +2360,7 @@ const AuditDetailsPage: React.FC = () => {
                           className={`w-full px-4 py-2.5 rounded-2xl text-xs font-bold outline-none border transition-all ${filterDataInicio ? 'border-[#8DC63F] ring-2 ring-[#8DC63F]/10' : ''} ${darkMode ? 'bg-slate-950 border-slate-800 text-slate-200 focus:border-[#8DC63F]' : 'bg-gray-50 border-gray-200 text-gray-700 focus:border-[#8DC63F]'}`}
                         />
                       </div>
-
                       <div className="space-y-1.5">
-                        <label className={`text-[9px] font-bold uppercase tracking-wider ml-1 ${darkMode ? 'text-slate-500' : 'text-gray-400'}`}>Fim do Período</label>
                         <input 
                           type="date"
                           value={filterDataFim}
@@ -2347,6 +2368,10 @@ const AuditDetailsPage: React.FC = () => {
                           className={`w-full px-4 py-2.5 rounded-2xl text-xs font-bold outline-none border transition-all ${filterDataFim ? 'border-[#8DC63F] ring-2 ring-[#8DC63F]/10' : ''} ${darkMode ? 'bg-slate-950 border-slate-800 text-slate-200 focus:border-[#8DC63F]' : 'bg-gray-50 border-gray-200 text-gray-700 focus:border-[#8DC63F]'}`}
                         />
                       </div>
+                    </div>
+                    
+                    <AuditTimeline />
+
                     </div>
                   </div>
                 </div>
