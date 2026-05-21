@@ -134,6 +134,10 @@ interface AuditContextType {
   finalStockHeaders: any[];
   selectedPlant: '1001' | '1005';
   setSelectedPlant: (plant: '1001' | '1005') => void;
+  initialStockColumnMapping: MovementColumnMapping;
+  setInitialStockColumnMapping: (m: MovementColumnMapping) => void;
+  finalStockColumnMapping: MovementColumnMapping;
+  setFinalStockColumnMapping: (m: MovementColumnMapping) => void;
   movementColumnMapping: MovementColumnMapping;
   setMovementColumnMapping: (m: MovementColumnMapping) => void;
   movementFiles: File[];
@@ -702,6 +706,24 @@ export const AuditProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const [finalStockHeaders, setFinalStockHeaders] = useState<any[]>([]);
   const [selectedPlant, setSelectedPlant] = useState<'1001' | '1005'>('1001');
 
+  const [initialStockColumnMapping, setInitialStockColumnMapping] = useState<MovementColumnMapping>(() => {
+    return safeLocalStorageGet('miniSapInitialStockMapping', {
+      material: 0,
+      description: 1,
+      plant: 2,
+      quantity: 3
+    } as MovementColumnMapping);
+  });
+
+  const [finalStockColumnMapping, setFinalStockColumnMapping] = useState<MovementColumnMapping>(() => {
+    return safeLocalStorageGet('miniSapFinalStockMapping', {
+      material: 0,
+      description: 1,
+      plant: 2,
+      quantity: 3
+    } as MovementColumnMapping);
+  });
+
   const [movementColumnMapping, setMovementColumnMapping] = useState<MovementColumnMapping>(() => {
     return safeLocalStorageGet('miniSapMovementMapping', {
       movementType: 0,    // A
@@ -713,6 +735,19 @@ export const AuditProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       date: 6             // G
     });
   });
+
+  useEffect(() => {
+    safeLocalStorageSet('miniSapInitialStockMapping', initialStockColumnMapping);
+  }, [initialStockColumnMapping]);
+
+  useEffect(() => {
+    safeLocalStorageSet('miniSapFinalStockMapping', finalStockColumnMapping);
+  }, [finalStockColumnMapping]);
+
+  useEffect(() => {
+    safeLocalStorageSet('miniSapMovementMapping', movementColumnMapping);
+  }, [movementColumnMapping]);
+
 
   const [movementFiles, setMovementFiles] = useState<File[]>([]);
   const { 
@@ -1298,6 +1333,8 @@ export const AuditProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     initialStockPositions, finalStockPositions,
     initialStockHeaders, finalStockHeaders,
     selectedPlant, setSelectedPlant,
+    initialStockColumnMapping, setInitialStockColumnMapping,
+    finalStockColumnMapping, setFinalStockColumnMapping,
     movementColumnMapping, setMovementColumnMapping,
     isProcessingMovements, movementProcessingStatus, movementProgressPercent,
     processarMovimentacoes,

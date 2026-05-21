@@ -38,6 +38,7 @@ import {
   Cell
 } from 'recharts';
 import { SAPMovementType, MaterialMovement } from '../types/audit';
+import MappingConfig from '../components/MappingConfig';
 
 const MovementsPage: React.FC = () => {
   const { 
@@ -72,6 +73,8 @@ const MovementsPage: React.FC = () => {
   const [newType, setNewType] = useState<Partial<SAPMovementType>>({ direction: 'Entrada', active: true });
   const [showAddType, setShowAddType] = useState(false);
   const [showMappingConfig, setShowMappingConfig] = useState(false);
+  const [showInitialMappingConfig, setShowInitialMappingConfig] = useState(false);
+  const [showFinalMappingConfig, setShowFinalMappingConfig] = useState(false);
 
   // Pagination State
   const [currentPage, setCurrentPage] = useState(1);
@@ -238,6 +241,11 @@ const MovementsPage: React.FC = () => {
   const reconciliationData = useMemo(() => {
     const materials: Record<string, any> = {};
     
+    const typesMap = movementTypes.reduce((acc, type) => {
+      acc[type.code] = type;
+      return acc;
+    }, {} as Record<string, SAPMovementType>);
+    
     const getBase = (m: any) => ({
       material: m.material,
       description: m.description,
@@ -255,19 +263,21 @@ const MovementsPage: React.FC = () => {
     });
 
     initialStockPositions.forEach(p => {
-      if (!materials[p.material]) materials[p.material] = getBase(p);
-      materials[p.material].initial = p.quantity;
+      const materialKey = String(p.material || '').trim().replace(/^0+/, '');
+      if (!materials[materialKey]) materials[materialKey] = getBase({ ...p, material: materialKey });
+      materials[materialKey].initial += Number(p.quantity) || 0;
     });
 
     finalStockPositions.forEach(p => {
-      if (!materials[p.material]) materials[p.material] = getBase(p);
-      materials[p.material].finalStockReal = p.quantity;
+      const materialKey = String(p.material || '').trim().replace(/^0+/, '');
+      if (!materials[materialKey]) materials[materialKey] = getBase({ ...p, material: materialKey });
+      materials[materialKey].finalStockReal += Number(p.quantity) || 0;
     });
 
     movements.forEach(m => {
       if (!materials[m.material]) materials[m.material] = getBase(m);
       
-      const type = movementTypes.find(t => t.code === m.movementType);
+      const type = typesMap[m.movementType];
       if (type) {
         let category = type.category;
 

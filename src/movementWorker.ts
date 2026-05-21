@@ -126,7 +126,7 @@ self.onmessage = async (e) => {
           const row = data[i];
           if (!row || row.length === 0) continue;
 
-          const material = idxMat >= 0 ? String(row[idxMat] || '').trim() : '';
+          const material = idxMat >= 0 ? String(row[idxMat] || '').trim().replace(/^0+/, '') : '';
           if (!material) continue;
 
           // 1. Materiais que começam com 10 ou 49 não geram estoque
@@ -195,7 +195,7 @@ self.onmessage = async (e) => {
           if (plant && currentPlant && currentPlant !== plant) continue;
 
           const item = {
-            material: String(row[idxMat] || '').trim(),
+            material: String(row[idxMat] || '').trim().replace(/^0+/, ''),
             description: String(row[idxDesc] || '').trim(),
             plant: currentPlant,
             quantity: parseNumber(row[idxQtd]),
