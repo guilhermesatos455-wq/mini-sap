@@ -259,7 +259,8 @@ const MovementsPage: React.FC = () => {
       sale: 0, // N8
       loss: 0, // O8
       req: 0, // P8
-      finalStockReal: 0 // S8
+      finalStockReal: 0, // S8
+      unclassified: 0 // Novo campo
     });
 
     initialStockPositions.forEach(p => {
@@ -278,7 +279,7 @@ const MovementsPage: React.FC = () => {
       if (!materials[m.material]) materials[m.material] = getBase(m);
       
       const type = typesMap[m.movementType];
-      if (type) {
+      if (type && type.category) {
         let category = type.category;
 
         // Lógica Dinâmica para códigos específicos
@@ -286,30 +287,33 @@ const MovementsPage: React.FC = () => {
           category = m.quantity >= 0 ? 'ADJUSTMENT_ENTRY' : 'ADJUSTMENT_EXIT';
         }
 
-        if (category) {
-          const qty = m.quantity;
-          switch (category) {
-            case 'INITIAL_STOCK': if (initialStockPositions.length === 0) materials[m.material].initial += qty; break;
-            case 'PRODUCTION_PURCHASE': materials[m.material].prod += qty; break;
-            case 'RETURN_ENTRY': materials[m.material].dev += qty; break;
-            case 'ADJUSTMENT_ENTRY': materials[m.material].adjIn += qty; break;
-            case 'ADJUSTMENT_EXIT': materials[m.material].adjOut += Math.abs(qty); break; // Always use absolute for subtraction later
-            case 'OTHER_EXIT': materials[m.material].otherOut += Math.abs(qty); break;
-            case 'BONIFICATION': materials[m.material].bonif += Math.abs(qty); break;
-            case 'SALE': materials[m.material].sale += Math.abs(qty); break;
-            case 'LOSS': materials[m.material].loss += Math.abs(qty); break;
-            case 'REQUISITION': materials[m.material].req += Math.abs(qty); break;
-            case 'FINAL_STOCK': if (finalStockPositions.length === 0) materials[m.material].finalStockReal += qty; break;
-          }
+        const qty = m.quantity;
+        switch (category) {
+          case 'INITIAL_STOCK': if (initialStockPositions.length === 0) materials[m.material].initial += qty; break;
+          case 'PRODUCTION_PURCHASE': materials[m.material].prod += qty; break;
+          case 'RETURN_ENTRY_SALE':
+          case 'RETURN_EXIT_PURCHASE': materials[m.material].dev += qty; break;
+          case 'ADJUSTMENT_ENTRY': materials[m.material].adjIn += qty; break;
+          case 'ADJUSTMENT_EXIT': materials[m.material].adjOut += Math.abs(qty); break; // Always use absolute for subtraction later
+          case 'OTHER_EXIT': materials[m.material].otherOut += Math.abs(qty); break;
+          case 'BONIFICATION': materials[m.material].bonif += Math.abs(qty); break;
+          case 'SALE': materials[m.material].sale += Math.abs(qty); break;
+          case 'LOSS': materials[m.material].loss += Math.abs(qty); break;
+          case 'REQUISITION': materials[m.material].req += Math.abs(qty); break;
+          case 'FINAL_STOCK': if (finalStockPositions.length === 0) materials[m.material].finalStockReal += qty; break;
+          default: materials[m.material].unclassified += Math.abs(qty); break;
         }
+      } else {
+        materials[m.material].unclassified += Math.abs(m.quantity);
       }
     });
 
     return Object.values(materials).map((m: any) => {
-      const totalIn = m.initial + m.prod + m.dev + m.adjIn; // J8
-      const totalOut = m.adjOut + m.otherOut + m.bonif + m.sale + m.loss + m.req; // Q8
-      const subtotal = totalIn - totalOut; // R8 (Assuming out is positive mag)
-      const difference = subtotal - m.finalStockReal; // T8
+      const round = (num: number) => Math.round(num * 10000) / 10000;
+      const totalIn = round(m.initial + m.prod + m.dev + m.adjIn); // J8
+      const totalOut = round(m.adjOut + m.otherOut + m.bonif + m.sale + m.loss + m.req + m.unclassified); // Inclui unclassified
+      const subtotal = round(totalIn - totalOut); // R8 (Assuming out is positive mag)
+      const difference = round(subtotal - m.finalStockReal); // T8
       return { ...m, totalIn, totalOut, subtotal, difference };
     }).filter((m: any) => 
       m.material.toLowerCase().includes(searchTerm.toLowerCase()) || 
@@ -498,7 +502,8 @@ const MovementsPage: React.FC = () => {
     // --- DETAILED SHEETS ---
     const categories = [
       { name: "1_PRODUÇÃO_COMPRAS", id: 'PRODUCTION_PURCHASE' },
-      { name: "2_DEVOLUÇÃO", id: 'RETURN_ENTRY' },
+      { name: "2_DEVOLUÇÃO_ENTRADA", id: 'RETURN_ENTRY_SALE' },
+      { name: "3_DEVOLUÇÃO_SAÍDA", id: 'RETURN_EXIT_PURCHASE' },
       { name: "AJUSTE_ENTRADA", id: 'ADJUSTMENT_ENTRY' },
       { name: "AJUSTE_SAÍDA", id: 'ADJUSTMENT_EXIT' },
       { name: "OUTRAS_SAÍDAS_SAC", id: 'OTHER_EXIT' },
@@ -778,6 +783,7 @@ const MovementsPage: React.FC = () => {
                     <div className="flex-1 space-y-1">
                       <h3 className="text-xs font-black uppercase tracking-widest">Estoque Inicial (E8)</h3>
                       <p className={`text-[10px] font-medium ${darkMode ? 'text-slate-500' : 'text-slate-400'}`}>Planilha "ESTOQUE INICIAL-Anterior"</p>
+                      <p className="text-[10px] text-[#8DC63F] font-bold">{initialStockPositions.length} itens carregados</p>
                     </div>
                     <div className="relative">
                       <input 
@@ -802,6 +808,7 @@ const MovementsPage: React.FC = () => {
                     <div className="flex-1 space-y-1">
                       <h3 className="text-xs font-black uppercase tracking-widest">Estoque Final (S8)</h3>
                       <p className={`text-[10px] font-medium ${darkMode ? 'text-slate-500' : 'text-slate-400'}`}>Planilha "ESTOQUE FINAL-MES ATUAL"</p>
+                      <p className="text-[10px] text-[#8DC63F] font-bold">{finalStockPositions.length} itens carregados</p>
                     </div>
                     <div className="relative">
                       <input 
@@ -1356,7 +1363,8 @@ const MovementsPage: React.FC = () => {
                           <option value="">Nenhuma</option>
                           <option value="INITIAL_STOCK">Estoque Inicial (E8)</option>
                           <option value="PRODUCTION_PURCHASE">Produção/Compras (G8)</option>
-                          <option value="RETURN_ENTRY">Devolução/Entradas (H8)</option>
+                          <option value="RETURN_ENTRY_SALE">Devolução Entrada (Venda)</option>
+                          <option value="RETURN_EXIT_PURCHASE">Devolução Saída (Compras)</option>
                           <option value="ADJUSTMENT_ENTRY">Ajuste Entrada (I8)</option>
                           <option value="ADJUSTMENT_EXIT">Ajuste Saída (K8)</option>
                           <option value="OTHER_EXIT">Outras Saídas (L8)</option>
@@ -1386,77 +1394,95 @@ const MovementsPage: React.FC = () => {
                 )}
               </AnimatePresence>
 
-              {movementTypes.map(type => (
-                <div 
-                  key={type.code}
-                  className={`p-6 rounded-3xl border transition-all group ${darkMode ? 'bg-slate-900 border-slate-800 hover:border-[#8DC63F]/50' : 'bg-white border-slate-100 hover:border-[#8DC63F]/50 shadow-sm'}`}
-                >
-                  <div className="flex items-start justify-between mb-4">
-                    <div className="flex items-center gap-3">
-                      <div className={`p-2 rounded-xl ${type.direction === 'Entrada' ? 'bg-emerald-500/10 text-emerald-500' : type.direction === 'Saída' ? 'bg-rose-500/10 text-rose-500' : 'bg-blue-500/10 text-blue-500'}`}>
-                        {type.direction === 'Entrada' ? <ArrowDownLeft className="w-5 h-5" /> : type.direction === 'Saída' ? <ArrowUpRight className="w-5 h-5" /> : <RefreshCcw className="w-5 h-5" />}
-                      </div>
-                      <div>
-                        <div className="text-xl font-black">{type.code}</div>
-                        <div className={`text-[10px] font-black uppercase tracking-widest ${type.direction === 'Entrada' ? 'text-emerald-500' : type.direction === 'Saída' ? 'text-rose-500' : 'text-blue-500'}`}>
-                          {type.direction}
+            {/* Configuração de Tipos Agrupada */}
+            <div className="space-y-8">
+              {Object.entries(movementTypes.reduce((acc, t) => {
+                const cat = t.category || 'Nenhuma Categoria';
+                if (!acc[cat]) acc[cat] = [];
+                acc[cat].push(t);
+                return acc;
+              }, {} as Record<string, SAPMovementType[]>)).map(([category, types]) => (
+                <div key={category} className="space-y-4">
+                  <h4 className={`text-xs font-black uppercase tracking-widest ${darkMode ? 'text-slate-500' : 'text-slate-400'}`}>
+                    {category.replace('_', ' ')}
+                  </h4>
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    {types.map(type => (
+                      <div 
+                        key={type.code}
+                        className={`p-6 rounded-3xl border transition-all group ${darkMode ? 'bg-slate-900 border-slate-800 hover:border-[#8DC63F]/50' : 'bg-white border-slate-100 hover:border-[#8DC63F]/50 shadow-sm'}`}
+                      >
+                        <div className="flex items-start justify-between mb-4">
+                          <div className="flex items-center gap-3">
+                            <div className={`p-2 rounded-xl ${type.direction === 'Entrada' ? 'bg-emerald-500/10 text-emerald-500' : type.direction === 'Saída' ? 'bg-rose-500/10 text-rose-500' : 'bg-blue-500/10 text-blue-500'}`}>
+                              {type.direction === 'Entrada' ? <ArrowDownLeft className="w-5 h-5" /> : type.direction === 'Saída' ? <ArrowUpRight className="w-5 h-5" /> : <RefreshCcw className="w-5 h-5" />}
+                            </div>
+                            <div>
+                              <div className="text-xl font-black">{type.code}</div>
+                              <div className={`text-[10px] font-black uppercase tracking-widest ${type.direction === 'Entrada' ? 'text-emerald-500' : type.direction === 'Saída' ? 'text-rose-500' : 'text-blue-500'}`}>
+                                {type.direction}
+                              </div>
+                            </div>
+                          </div>
+                          <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                            <button 
+                              onClick={() => setEditingType(type.code)}
+                              className={`p-2 rounded-lg ${darkMode ? 'hover:bg-slate-800 text-slate-500' : 'hover:bg-slate-50 text-slate-400'}`}
+                            >
+                              <Edit2 className="w-4 h-4" />
+                            </button>
+                            <button 
+                              onClick={() => handleDeleteType(type.code)}
+                              className={`p-2 rounded-lg ${darkMode ? 'hover:bg-red-500/10 text-red-500' : 'hover:bg-red-50 text-red-500'}`}
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          </div>
                         </div>
+                        
+                        {editingType === type.code ? (
+                          <div className="space-y-3 pt-2 animate-in fade-in slide-in-from-top-1 duration-200">
+                            <input 
+                              type="text" 
+                              defaultValue={type.description}
+                              onBlur={(e) => handleUpdateType(type.code, { description: e.target.value })}
+                              autoFocus
+                              className={`w-full px-3 py-2 rounded-xl text-xs font-bold outline-none border ${darkMode ? 'bg-slate-950 border-slate-800 text-white' : 'bg-white border-slate-200 text-slate-900'}`}
+                            />
+                            <select 
+                              defaultValue={type.category || ''}
+                              onChange={(e) => handleUpdateType(type.code, { category: e.target.value as any })}
+                              className={`w-full px-3 py-2 rounded-xl text-xs font-bold outline-none border ${darkMode ? 'bg-slate-950 border-slate-800 text-white' : 'bg-white border-slate-200 text-slate-900'}`}
+                            >
+                              <option value="">Nenhuma Categoria</option>
+                              <option value="INITIAL_STOCK">Estoque Inicial (E8)</option>
+                              <option value="PRODUCTION_PURCHASE">Produção/Compras (G8)</option>
+                              <option value="RETURN_ENTRY_SALE">Devolução Entrada (Venda)</option>
+                              <option value="RETURN_EXIT_PURCHASE">Devolução Saída (Compras)</option>
+                              <option value="ADJUSTMENT_ENTRY">Ajuste Entrada (I8)</option>
+                              <option value="ADJUSTMENT_EXIT">Ajuste Saída (K8)</option>
+                              <option value="OTHER_EXIT">Outras Saídas (L8)</option>
+                              <option value="BONIFICATION">Bonificação (M8)</option>
+                              <option value="SALE">Venda (N8)</option>
+                              <option value="LOSS">Perda (O8)</option>
+                              <option value="REQUISITION">Requisição (P8)</option>
+                              <option value="FINAL_STOCK">Estoque Final (S8)</option>
+                            </select>
+                            <div className="flex gap-2">
+                              <button onClick={() => setEditingType(null)} className="flex-1 py-2 rounded-xl bg-slate-100 dark:bg-slate-800 text-[10px] font-black uppercase tracking-widest">Cancelar</button>
+                            </div>
+                          </div>
+                        ) : (
+                          <p className={`text-xs font-medium leading-relaxed ${darkMode ? 'text-slate-400' : 'text-slate-500'}`}>
+                            {type.description}
+                          </p>
+                        )}
                       </div>
-                    </div>
-                    <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                      <button 
-                        onClick={() => setEditingType(type.code)}
-                        className={`p-2 rounded-lg ${darkMode ? 'hover:bg-slate-800 text-slate-500' : 'hover:bg-slate-50 text-slate-400'}`}
-                      >
-                        <Edit2 className="w-4 h-4" />
-                      </button>
-                      <button 
-                        onClick={() => handleDeleteType(type.code)}
-                        className={`p-2 rounded-lg ${darkMode ? 'hover:bg-red-500/10 text-red-500' : 'hover:bg-red-50 text-red-500'}`}
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
-                    </div>
+                    ))}
                   </div>
-                  
-                  {editingType === type.code ? (
-                    <div className="space-y-3 pt-2 animate-in fade-in slide-in-from-top-1 duration-200">
-                      <input 
-                        type="text" 
-                        defaultValue={type.description}
-                        onBlur={(e) => handleUpdateType(type.code, { description: e.target.value })}
-                        autoFocus
-                        className={`w-full px-3 py-2 rounded-xl text-xs font-bold outline-none border ${darkMode ? 'bg-slate-950 border-slate-800 text-white' : 'bg-white border-slate-200 text-slate-900'}`}
-                      />
-                      <select 
-                        defaultValue={type.category || ''}
-                        onChange={(e) => handleUpdateType(type.code, { category: e.target.value as any })}
-                        className={`w-full px-3 py-2 rounded-xl text-xs font-bold outline-none border ${darkMode ? 'bg-slate-950 border-slate-800 text-white' : 'bg-white border-slate-200 text-slate-900'}`}
-                      >
-                        <option value="">Nenhuma Categoria</option>
-                        <option value="INITIAL_STOCK">Estoque Inicial (E8)</option>
-                        <option value="PRODUCTION_PURCHASE">Produção/Compras (G8)</option>
-                        <option value="RETURN_ENTRY">Devolução/Entradas (H8)</option>
-                        <option value="ADJUSTMENT_ENTRY">Ajuste Entrada (I8)</option>
-                        <option value="ADJUSTMENT_EXIT">Ajuste Saída (K8)</option>
-                        <option value="OTHER_EXIT">Outras Saídas (L8)</option>
-                        <option value="BONIFICATION">Bonificação (M8)</option>
-                        <option value="SALE">Venda (N8)</option>
-                        <option value="LOSS">Perda (O8)</option>
-                        <option value="REQUISITION">Requisição (P8)</option>
-                        <option value="FINAL_STOCK">Estoque Final (S8)</option>
-                      </select>
-                      <div className="flex gap-2">
-                        <button onClick={() => setEditingType(null)} className="flex-1 py-2 rounded-xl bg-slate-100 dark:bg-slate-800 text-[10px] font-black uppercase tracking-widest">Cancelar</button>
-                      </div>
-                    </div>
-                  ) : (
-                    <p className={`text-xs font-medium leading-relaxed ${darkMode ? 'text-slate-400' : 'text-slate-500'}`}>
-                      {type.description}
-                    </p>
-                  )}
                 </div>
               ))}
+            </div>
             </div>
           </motion.div>
         )}

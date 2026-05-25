@@ -73,7 +73,7 @@ self.onmessage = async (e) => {
 
       if (fileType === 'movements') {
         let headerIdx = -1;
-        let idxDoc, idxDate, idxType, idxMat, idxDesc, idxQtd, idxPlant, idxLoc, idxUser;
+        let idxDoc, idxDate, idxType, idxMat, idxDesc, idxQtd, idxUnit, idxPlant, idxLoc, idxUser;
 
         if (mapping) {
           // Layout customizado ou padrão "Guilherme Souza"
@@ -88,6 +88,7 @@ self.onmessage = async (e) => {
           idxQtd = mapping.quantity;
           idxLoc = mapping.storageLocation;
           idxDate = mapping.date;
+          idxUnit = mapping.unit ?? -1; // Mapeamento customizado para Unidade
           idxDoc = mapping.docNumber ?? -1;
           idxPlant = mapping.plant ?? -1;
           idxUser = mapping.user ?? -1;
@@ -95,6 +96,7 @@ self.onmessage = async (e) => {
           // Se não houver idxDoc ou idxMat explicitamente no mapeamento como essencial, tentamos fuzzy para os faltantes
           const headers = data[headerIdx - 1] || [];
           if (idxDoc === -1) idxDoc = fuzzyDetect(headers, ['Documento', 'Doc. Mat', 'Doc.Material', 'Número doc.']);
+          if (idxUnit === -1) idxUnit = fuzzyDetect(headers, ['Unidade', 'UM', 'Unit']);
           if (idxPlant === -1) idxPlant = fuzzyDetect(headers, ['Centro', 'Plnt', 'Plant']);
           if (idxUser === -1) idxUser = fuzzyDetect(headers, ['Usuário', 'User', 'User Name']);
         } else {
@@ -116,6 +118,7 @@ self.onmessage = async (e) => {
           idxMat = fuzzyDetect(headers, ['Material', 'Cod. Material', 'Produto']);
           idxDesc = fuzzyDetect(headers, ['Descrição', 'Texto Breve', 'Material Description']);
           idxQtd = fuzzyDetect(headers, ['Quantidade', 'Qtd', 'Quantity']);
+          idxUnit = fuzzyDetect(headers, ['Unidade', 'UM', 'Unit']);
           idxPlant = fuzzyDetect(headers, ['Centro', 'Plnt', 'Plant']);
           idxLoc = fuzzyDetect(headers, ['Depósito', 'SLoc', 'Storage Location']);
           idxUser = fuzzyDetect(headers, ['Usuário', 'User', 'User Name']);
@@ -154,6 +157,7 @@ self.onmessage = async (e) => {
             material,
             description: idxDesc >= 0 ? String(row[idxDesc] || '').trim() : '',
             quantity: idxQtd >= 0 ? parseNumber(row[idxQtd]) : 0,
+            unit: idxUnit >= 0 ? String(row[idxUnit] || '').trim() : '',
             plant: currentPlant,
             storageLocation: locVal,
             user: idxUser >= 0 ? String(row[idxUser] || '').trim() : ''
@@ -162,43 +166,41 @@ self.onmessage = async (e) => {
       } else {
         // Lógica de Posição de Estoque (LAYOUT A-O)
         let dataStartIdx = 0;
-        let idxMat = 0;
-        let idxDesc = 1;
-        let idxPlant = 4;
-        let idxQtd = 11;
+        let idxMat = 0;       // A
+        let idxMaterial = 1;  // B
+        let idxTpMat = 2;     // C
+        let idxTpMaterial = 3;// D
+        let idxPlantCode = 4; // E
+        let idxPlant = 5;     // F
+        let idxLote = 6;      // G
+        let idxValidade = 7;  // H
+        let idxDeposito = 8;  // I
+        let idxDescDeposito = 9;// J
+        let idxUnit = 10;     // K
+        let idxQtd = 11;      // L
+        let idxValorReal = 12;// M
+        let idxPrecoUnit = 13;// N
+        let idxConta = 14;    // O
 
-        for (let i = 0; i < Math.min(data.length, 25); i++) {
-          const row = data[i];
-          if (row && row.some(cell => typeof cell === 'string' && cell.toUpperCase().includes('MATERIAL'))) {
-            dataStartIdx = i + 1;
-            const headers = row;
-            if (fileType === 'initial' && initialHeaders.length === 0) initialHeaders.push(...headers);
-            if (fileType === 'final' && finalHeaders.length === 0) finalHeaders.push(...headers);
+        // A linha de cabeçalho é a 7 (índice 6)
+        dataStartIdx = 7; 
+        // Em seguida, processamos os dados a partir da linha 8 (índice 7)
 
-            const fMat = fuzzyDetect(headers, ['Material', 'Cód.']);
-            const fDesc = fuzzyDetect(headers, ['Descrição', 'Texto Breve']);
-            const fPlant = fuzzyDetect(headers, ['Centro', 'Plant', 'Plnt']);
-            const fQtd = fuzzyDetect(headers, ['Estoque', 'Quantidade', 'Livre', 'Final']);
-            if (fMat >= 0) idxMat = fMat;
-            if (fDesc >= 0) idxDesc = fDesc;
-            if (fPlant >= 0) idxPlant = fPlant;
-            if (fQtd >= 0) idxQtd = fQtd;
-            break;
-          }
-        }
 
         for (let i = dataStartIdx; i < data.length; i++) {
           const row = data[i];
           if (!row || !row[idxMat]) continue;
 
+          // Centro é agora a coluna F (índice 5)
           const currentPlant = String(row[idxPlant] || '').trim();
           if (plant && currentPlant && currentPlant !== plant) continue;
 
           const item = {
             material: String(row[idxMat] || '').trim().replace(/^0+/, ''),
-            description: String(row[idxDesc] || '').trim(),
+            description: String(row[idxMaterial] || '').trim(), // B8 = Material (usado como descrição)
             plant: currentPlant,
             quantity: parseNumber(row[idxQtd]),
+            unit: idxUnit >= 0 ? String(row[idxUnit] || '').trim() : '',
             rawData: row // Store the whole row for export
           };
 

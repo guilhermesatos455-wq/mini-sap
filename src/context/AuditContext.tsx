@@ -627,15 +627,15 @@ export const AuditProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       { code: '602', description: 'Estorno da venda (Produto Acabado)', direction: 'Entrada', active: true, category: 'SALE' },
       
       // Devolução Entrada
-      { code: '657', description: 'Devolução de entrada (Venda)', direction: 'Entrada', active: true, category: 'RETURN_ENTRY' },
-      { code: '658', description: 'Estorno da devolução de entrada (Venda)', direction: 'Saída', active: true, category: 'RETURN_ENTRY' },
-      { code: '653', description: 'Devolução de entrada de venda', direction: 'Entrada', active: true, category: 'RETURN_ENTRY' },
-      { code: '654', description: 'Estorno devolução entrada venda', direction: 'Saída', active: true, category: 'RETURN_ENTRY' },
+      { code: '657', description: 'Devolução de entrada (Venda)', direction: 'Entrada', active: true, category: 'RETURN_ENTRY_SALE' },
+      { code: '658', description: 'Estorno da devolução de entrada (Venda)', direction: 'Saída', active: true, category: 'RETURN_ENTRY_SALE' },
+      { code: '653', description: 'Devolução de entrada de venda', direction: 'Entrada', active: true, category: 'RETURN_ENTRY_SALE' },
+      { code: '654', description: 'Estorno devolução entrada venda', direction: 'Saída', active: true, category: 'RETURN_ENTRY_SALE' },
       
       // Devolução Compras
-      { code: '122', description: 'Devolução de saída (Compras)', direction: 'Saída', active: true, category: 'RETURN_ENTRY' },
-      { code: '123', description: 'Estorno da devolução de saída (Compras)', direction: 'Entrada', active: true, category: 'RETURN_ENTRY' },
-      { code: '502', description: 'Devolução compras', direction: 'Saída', active: true, category: 'RETURN_ENTRY' },
+      { code: '122', description: 'Devolução de saída (Compras)', direction: 'Saída', active: true, category: 'RETURN_EXIT_PURCHASE' },
+      { code: '123', description: 'Estorno da devolução de saída (Compras)', direction: 'Entrada', active: true, category: 'RETURN_EXIT_PURCHASE' },
+      { code: '502', description: 'Devolução compras', direction: 'Saída', active: true, category: 'RETURN_EXIT_PURCHASE' },
       
       // Bonificação
       { code: '973', description: 'Bonificação (Produto Acabado)', direction: 'Saída', active: true, category: 'BONIFICATION' },
@@ -675,7 +675,7 @@ export const AuditProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       { code: 'Z61', description: 'Consumo Requisição (P&D)', direction: 'Saída', active: true, category: 'REQUISITION' },
       
       // Dinâmicos (Categoria decidida por sinal no worker)
-      { code: '309', description: 'Transferência de Código', direction: 'Transferência', active: true, category: 'ADJUSTMENT_ENTRY' },
+      { code: '309', description: 'Transferência de Código', direction: 'Transferência', active: true, category: 'ADJUSTMENT_EXIT' },
       { code: '325', description: 'Transferência (I8/K8)', direction: 'Transferência', active: true, category: 'ADJUSTMENT_ENTRY' },
       { code: '321', description: 'Transferência (I8/K8)', direction: 'Transferência', active: true, category: 'ADJUSTMENT_ENTRY' }
     ];
