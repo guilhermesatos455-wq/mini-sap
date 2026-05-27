@@ -67,7 +67,7 @@ const MovementsPage: React.FC = () => {
     processarMovimentacoes
   } = useAudit();
 
-  const [activeTab, setActiveTab] = useState<'list' | 'types' | 'analytics' | 'upload' | 'reconciliation'>('list');
+  const [activeTab, setActiveTab] = useState<'list' | 'types' | 'analytics' | 'upload'>('list');
   const [searchTerm, setSearchTerm] = useState('');
   const [editingType, setEditingType] = useState<string | null>(null);
   const [newType, setNewType] = useState<Partial<SAPMovementType>>({ direction: 'Entrada', active: true });
@@ -617,7 +617,6 @@ const MovementsPage: React.FC = () => {
         {[
           { id: 'upload', label: 'Upload MB51', icon: <Download className="w-4 h-4" /> },
           { id: 'list', label: 'Movimentos', icon: <TableIcon className="w-4 h-4" /> },
-          { id: 'reconciliation', label: 'Conciliação', icon: <BarChart3 className="w-4 h-4" /> },
           { id: 'analytics', label: 'Análise Mensal', icon: <BarChart3 className="w-4 h-4" /> },
           { id: 'types', label: 'Configuração de Tipos', icon: <Settings className="w-4 h-4" /> },
         ].map(tab => (
@@ -1038,8 +1037,23 @@ const MovementsPage: React.FC = () => {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -20 }}
-            className="space-y-6"
+            className="space-y-8"
           >
+            <div className={`p-8 rounded-[32px] border ${darkMode ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-100 shadow-sm'} grid grid-cols-1 md:grid-cols-3 gap-6`}>
+                <div className="space-y-2">
+                    <label className="text-xs font-black uppercase text-slate-500">Movimentações MB51</label>
+                    <input type="file" className="w-full p-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-xs" />
+                </div>
+                <div className="space-y-2">
+                    <label className="text-xs font-black uppercase text-slate-500">Estoque Inicial</label>
+                    <input type="file" className="w-full p-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-xs" />
+                </div>
+                <div className="space-y-2">
+                    <label className="text-xs font-black uppercase text-slate-500">Estoque Final</label>
+                    <input type="file" className="w-full p-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-xs" />
+                </div>
+            </div>
+
             <div className={`p-6 rounded-3xl border ${darkMode ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-100 shadow-sm'} flex flex-col md:flex-row gap-4`}>
               <div className="relative flex-1">
                 <Search className={`absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 ${darkMode ? 'text-slate-500' : 'text-slate-400'}`} />
@@ -1171,7 +1185,7 @@ const MovementsPage: React.FC = () => {
             </div>
           </motion.div>
         )}
-
+        
         {activeTab === 'analytics' && (
           <motion.div
             key="analytics"
@@ -1197,7 +1211,7 @@ const MovementsPage: React.FC = () => {
               </div>
               
               <div className="h-[400px] w-full">
-                <ResponsiveContainer width="100%" height="100%">
+                <ResponsiveContainer width="100%" height="100%" minHeight={0} minWidth={0}>
                   <BarChart data={monthlyData}>
                     <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={darkMode ? '#1e293b' : '#f1f5f9'} />
                     <XAxis 

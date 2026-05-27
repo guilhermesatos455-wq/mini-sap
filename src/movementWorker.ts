@@ -38,6 +38,25 @@ const parseNumber = (val: any): number => {
   return 0;
 };
 
+const classifyMovement = (type: string, quantity: number, material: string): string => {
+  if (material.startsWith('70')) return 'Bonificação';
+  
+  if (['101', '102'].includes(type)) return 'Produção/Compras';
+  if (['601', '602'].includes(type)) return 'Venda';
+  if (['653', '654', '657', '658'].includes(type)) return 'Devolução Entrada';
+  if (['122', '123', '502'].includes(type)) return 'Devolução Compras';
+  if (['973', '974', '967', '968'].includes(type)) return 'Bonificação';
+  if (['541', '542', '543', '544', '975', '976', '862', '864', '861'].includes(type)) return 'Outras Saídas';
+  if (['971', '972'].includes(type)) return 'Perdas';
+  if (['309', '702', '711'].includes(type)) return 'Ajuste de Saída';
+  if (['701', '712'].includes(type)) return 'Ajuste de Entrada';
+  if (['201', '202', '261', '262', '333', '334', 'Z61'].includes(type)) return 'Requisição';
+  if (['325', '321'].includes(type)) {
+     return quantity < 0 ? 'Ajuste de Saída' : 'Ajuste de Entrada';
+  }
+  return 'Outros'; 
+};
+
 const fuzzyDetect = (headers: any[], synonyms: string[]): number => {
   for (let i = 0; i < headers.length; i++) {
     const h = String(headers[i] || '').trim().toUpperCase();
@@ -148,6 +167,7 @@ self.onmessage = async (e) => {
 
           const docNumber = idxDoc >= 0 ? String(row[idxDoc] || '').trim() : '';
           const date = idxDate >= 0 ? parseExcelDate(row[idxDate]) : null;
+          const quantity = idxQtd >= 0 ? parseNumber(row[idxQtd]) : 0;
           
           allMovements.push({
             id: `${docNumber || 'NODOC'}_${i}_${f}`,
@@ -155,8 +175,9 @@ self.onmessage = async (e) => {
             date: date ? date.toISOString() : new Date().toISOString(),
             movementType,
             material,
+            category: classifyMovement(movementType, quantity, material),
             description: idxDesc >= 0 ? String(row[idxDesc] || '').trim() : '',
-            quantity: idxQtd >= 0 ? parseNumber(row[idxQtd]) : 0,
+            quantity,
             unit: idxUnit >= 0 ? String(row[idxUnit] || '').trim() : '',
             plant: currentPlant,
             storageLocation: locVal,
@@ -166,7 +187,7 @@ self.onmessage = async (e) => {
       } else {
         // Lógica de Posição de Estoque (LAYOUT A-O)
         let dataStartIdx = 0;
-        let idxMat = 0;       // A
+        let idxMat = 3;       // D
         let idxMaterial = 1;  // B
         let idxTpMat = 2;     // C
         let idxTpMaterial = 3;// D
@@ -197,11 +218,21 @@ self.onmessage = async (e) => {
 
           const item = {
             material: String(row[idxMat] || '').trim().replace(/^0+/, ''),
-            description: String(row[idxMaterial] || '').trim(), // B8 = Material (usado como descrição)
-            plant: currentPlant,
-            quantity: parseNumber(row[idxQtd]),
-            unit: idxUnit >= 0 ? String(row[idxUnit] || '').trim() : '',
-            rawData: row // Store the whole row for export
+            materialDescription: String(row[idxMaterial] || '').trim(), // B
+            codTpMaterial: String(row[idxTpMat] || '').trim(), // C
+            tipoMaterial: String(row[idxTpMaterial] || '').trim(), // D
+            codCentro: String(row[idxPlantCode] || '').trim(), // E
+            plant: String(row[idxPlant] || '').trim(), // F
+            lote: String(row[idxLote] || '').trim(), // G
+            dataVencimento: String(row[idxValidade] || '').trim(), // H
+            deposito: String(row[idxDeposito] || '').trim(), // I
+            descDeposito: String(row[idxDescDeposito] || '').trim(), // J
+            unit: String(row[idxUnit] || '').trim(), // K
+            quantity: parseNumber(row[idxQtd]), // L
+            valorRealCalculado: parseNumber(row[idxValorReal]), // M
+            precoUnitarioCalculado: parseNumber(row[idxPrecoUnit]), // N
+            contaContabil: String(row[idxConta] || '').trim(), // O
+            rawData: row
           };
 
           if (fileType === 'initial') allInitial.push(item);

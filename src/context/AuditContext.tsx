@@ -24,7 +24,7 @@ import {
 import { db, auth } from '../firebase';
 import { useAuditWorker } from '../hooks/useAuditWorker';
 import { useMovementsWorker } from '../hooks/useMovementsWorker';
-import { mergeItemData, recalculateTotals, persistComment, calculateItemImpact } from '../utils/auditUtils';
+import { mergeItemData, recalculateTotals, persistComment, calculateItemImpact, CalcularRelatorioAuditoria } from '../utils/auditUtils';
 import { safeLocalStorageSet, safeLocalStorageGet, setLargeData, getLargeData } from '../utils/storageUtils';
 
 import { Divergencia, SAPMovementType, MaterialMovement, AuditRecipe, StockPosition, MovementColumnMapping, ShowColunas } from '../types/audit';
@@ -146,6 +146,7 @@ interface AuditContextType {
   movementProcessingStatus: string;
   movementProgressPercent: number;
   processarMovimentacoes: () => Promise<void>;
+  processarConciliacao: () => any[];
   aiMessages: any[];
   setAiMessages: (msgs: any[] | ((prev: any[]) => any[])) => void;
   isAIOpen: boolean;
@@ -802,6 +803,10 @@ export const AuditProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     }
   }, [movementFiles, initialStockFiles, finalStockFiles, selectedPlant, movementColumnMapping, processarMovimentosWorker, addToast, setStatus]);
 
+  const processarConciliacao = useCallback(() => {
+    return CalcularRelatorioAuditoria(movements, initialStockPositions, finalStockPositions);
+  }, [movements, initialStockPositions, finalStockPositions]);
+
   const [aiMessages, setAiMessages] = useState<any[]>([]);
 
   const [isAIOpen, setIsAIOpen] = useState(false);
@@ -1338,6 +1343,7 @@ export const AuditProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     movementColumnMapping, setMovementColumnMapping,
     isProcessingMovements, movementProcessingStatus, movementProgressPercent,
     processarMovimentacoes,
+    processarConciliacao,
     recipes: recipes || [],
     setRecipes
   }), [
@@ -1378,6 +1384,7 @@ export const AuditProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     movementColumnMapping,
     isProcessingMovements, movementProcessingStatus, movementProgressPercent,
     processarMovimentacoes,
+    processarConciliacao,
     recipes
   ]);
 
