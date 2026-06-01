@@ -160,11 +160,6 @@ export interface MaterialMovement {
   movementType: string;
   quantity: number;
   date: string;
-  postingDate: string; // Adicionado
-  unit: string; // Adicionado
-  value: number; // Adicionado
-  reference: string; // Adicionado
-  order: string; // Adicionado
   plant: string;
   storageLocation: string;
   batch?: string;
@@ -177,7 +172,6 @@ export interface StockPosition {
   description: string;
   plant: string;
   quantity: number;
-  unit: string; // Adicionado: Unidade de Medida
   rawData?: any[];
 }
 
@@ -192,5 +186,4 @@ export interface MovementColumnMapping {
   docNumber?: number;
   plant?: number;
   user?: number;
-  unit?: number;
 }

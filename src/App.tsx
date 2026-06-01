@@ -10,7 +10,6 @@ import HistoryPage from './pages/History';
 import SettingsPage from './pages/Settings';
 import HelpPage from './pages/Help';
 import PriceSimulatorPage from './pages/PriceSimulator';
-import NewReconciliationPage from './pages/NewReconciliation';
 import MovementsPage from './pages/Movements';
 import MaterialDashboardPage from './pages/MaterialDashboard';
 import RecipesPage from './pages/Recipes';
@@ -70,7 +69,6 @@ const App: React.FC = () => {
                 } />
                 <Route path="history" element={<HistoryPage />} />
                 <Route path="movements" element={<MovementsPage />} />
-                <Route path="new-reconciliation" element={<NewReconciliationPage />} />
                 <Route path="material-dashboard" element={<MaterialDashboardPage />} />
                 <Route path="simulator" element={<PriceSimulatorPage />} />
                 <Route path="recipes" element={<RecipesPage />} />

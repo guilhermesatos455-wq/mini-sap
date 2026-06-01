@@ -13,8 +13,7 @@ import {
   HelpCircle,
   RefreshCcw,
   ArrowRightLeft,
-  ScrollText,
-  BarChart3
+  ScrollText
 } from 'lucide-react';
 import Logo from './Logo';
 import { useAudit } from '../context/AuditContext';
@@ -44,7 +43,6 @@ const Sidebar: React.FC = React.memo(() => {
       title: 'Logística SAP',
       items: [
         { to: '/movements', icon: <RefreshCcw className="w-4 h-4" />, label: 'Movimentações (MB51)' },
-        { to: '/new-reconciliation', icon: <BarChart3 className="w-4 h-4" />, label: 'Conciliação (Novo)' },
       ]
     },
     {

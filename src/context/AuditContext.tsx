@@ -24,7 +24,7 @@ import {
 import { db, auth } from '../firebase';
 import { useAuditWorker } from '../hooks/useAuditWorker';
 import { useMovementsWorker } from '../hooks/useMovementsWorker';
-import { mergeItemData, recalculateTotals, persistComment, calculateItemImpact, CalcularRelatorioAuditoria } from '../utils/auditUtils';
+import { mergeItemData, recalculateTotals, persistComment, calculateItemImpact } from '../utils/auditUtils';
 import { safeLocalStorageSet, safeLocalStorageGet, setLargeData, getLargeData } from '../utils/storageUtils';
 
 import { Divergencia, SAPMovementType, MaterialMovement, AuditRecipe, StockPosition, MovementColumnMapping, ShowColunas } from '../types/audit';
@@ -146,7 +146,6 @@ interface AuditContextType {
   movementProcessingStatus: string;
   movementProgressPercent: number;
   processarMovimentacoes: () => Promise<void>;
-  processarConciliacao: () => any[];
   aiMessages: any[];
   setAiMessages: (msgs: any[] | ((prev: any[]) => any[])) => void;
   isAIOpen: boolean;
@@ -628,15 +627,15 @@ export const AuditProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       { code: '602', description: 'Estorno da venda (Produto Acabado)', direction: 'Entrada', active: true, category: 'SALE' },
       
       // Devolução Entrada
-      { code: '657', description: 'Devolução de entrada (Venda)', direction: 'Entrada', active: true, category: 'RETURN_ENTRY_SALE' },
-      { code: '658', description: 'Estorno da devolução de entrada (Venda)', direction: 'Saída', active: true, category: 'RETURN_ENTRY_SALE' },
-      { code: '653', description: 'Devolução de entrada de venda', direction: 'Entrada', active: true, category: 'RETURN_ENTRY_SALE' },
-      { code: '654', description: 'Estorno devolução entrada venda', direction: 'Saída', active: true, category: 'RETURN_ENTRY_SALE' },
+      { code: '657', description: 'Devolução de entrada (Venda)', direction: 'Entrada', active: true, category: 'RETURN_ENTRY' },
+      { code: '658', description: 'Estorno da devolução de entrada (Venda)', direction: 'Saída', active: true, category: 'RETURN_ENTRY' },
+      { code: '653', description: 'Devolução de entrada de venda', direction: 'Entrada', active: true, category: 'RETURN_ENTRY' },
+      { code: '654', description: 'Estorno devolução entrada venda', direction: 'Saída', active: true, category: 'RETURN_ENTRY' },
       
       // Devolução Compras
-      { code: '122', description: 'Devolução de saída (Compras)', direction: 'Saída', active: true, category: 'RETURN_EXIT_PURCHASE' },
-      { code: '123', description: 'Estorno da devolução de saída (Compras)', direction: 'Entrada', active: true, category: 'RETURN_EXIT_PURCHASE' },
-      { code: '502', description: 'Devolução compras', direction: 'Saída', active: true, category: 'RETURN_EXIT_PURCHASE' },
+      { code: '122', description: 'Devolução de saída (Compras)', direction: 'Saída', active: true, category: 'RETURN_ENTRY' },
+      { code: '123', description: 'Estorno da devolução de saída (Compras)', direction: 'Entrada', active: true, category: 'RETURN_ENTRY' },
+      { code: '502', description: 'Devolução compras', direction: 'Saída', active: true, category: 'RETURN_ENTRY' },
       
       // Bonificação
       { code: '973', description: 'Bonificação (Produto Acabado)', direction: 'Saída', active: true, category: 'BONIFICATION' },
@@ -802,10 +801,6 @@ export const AuditProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       addToast(`Erro: ${error.message}`, 'error');
     }
   }, [movementFiles, initialStockFiles, finalStockFiles, selectedPlant, movementColumnMapping, processarMovimentosWorker, addToast, setStatus]);
-
-  const processarConciliacao = useCallback(() => {
-    return CalcularRelatorioAuditoria(movements, initialStockPositions, finalStockPositions);
-  }, [movements, initialStockPositions, finalStockPositions]);
 
   const [aiMessages, setAiMessages] = useState<any[]>([]);
 
@@ -1343,7 +1338,6 @@ export const AuditProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     movementColumnMapping, setMovementColumnMapping,
     isProcessingMovements, movementProcessingStatus, movementProgressPercent,
     processarMovimentacoes,
-    processarConciliacao,
     recipes: recipes || [],
     setRecipes
   }), [
@@ -1384,7 +1378,6 @@ export const AuditProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     movementColumnMapping,
     isProcessingMovements, movementProcessingStatus, movementProgressPercent,
     processarMovimentacoes,
-    processarConciliacao,
     recipes
   ]);
 

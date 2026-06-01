@@ -67,7 +67,7 @@ const MovementsPage: React.FC = () => {
     processarMovimentacoes
   } = useAudit();
 
-  const [activeTab, setActiveTab] = useState<'list' | 'types' | 'analytics' | 'upload'>('list');
+  const [activeTab, setActiveTab] = useState<'list' | 'types' | 'analytics' | 'upload' | 'reconciliation'>('list');
   const [searchTerm, setSearchTerm] = useState('');
   const [editingType, setEditingType] = useState<string | null>(null);
   const [newType, setNewType] = useState<Partial<SAPMovementType>>({ direction: 'Entrada', active: true });
@@ -259,8 +259,7 @@ const MovementsPage: React.FC = () => {
       sale: 0, // N8
       loss: 0, // O8
       req: 0, // P8
-      finalStockReal: 0, // S8
-      unclassified: 0 // Novo campo
+      finalStockReal: 0 // S8
     });
 
     initialStockPositions.forEach(p => {
@@ -279,7 +278,7 @@ const MovementsPage: React.FC = () => {
       if (!materials[m.material]) materials[m.material] = getBase(m);
       
       const type = typesMap[m.movementType];
-      if (type && type.category) {
+      if (type) {
         let category = type.category;
 
         // Lógica Dinâmica para códigos específicos
@@ -287,33 +286,31 @@ const MovementsPage: React.FC = () => {
           category = m.quantity >= 0 ? 'ADJUSTMENT_ENTRY' : 'ADJUSTMENT_EXIT';
         }
 
-        const qty = m.quantity;
-        switch (category) {
-          case 'INITIAL_STOCK': if (initialStockPositions.length === 0) materials[m.material].initial += qty; break;
-          case 'PRODUCTION_PURCHASE': materials[m.material].prod += qty; break;
-          case 'RETURN_ENTRY_SALE':
-          case 'RETURN_EXIT_PURCHASE': materials[m.material].dev += qty; break;
-          case 'ADJUSTMENT_ENTRY': materials[m.material].adjIn += qty; break;
-          case 'ADJUSTMENT_EXIT': materials[m.material].adjOut += Math.abs(qty); break; // Always use absolute for subtraction later
-          case 'OTHER_EXIT': materials[m.material].otherOut += Math.abs(qty); break;
-          case 'BONIFICATION': materials[m.material].bonif += Math.abs(qty); break;
-          case 'SALE': materials[m.material].sale += Math.abs(qty); break;
-          case 'LOSS': materials[m.material].loss += Math.abs(qty); break;
-          case 'REQUISITION': materials[m.material].req += Math.abs(qty); break;
-          case 'FINAL_STOCK': if (finalStockPositions.length === 0) materials[m.material].finalStockReal += qty; break;
-          default: materials[m.material].unclassified += Math.abs(qty); break;
+        if (category) {
+          const qty = m.quantity;
+          switch (category) {
+            case 'INITIAL_STOCK': if (initialStockPositions.length === 0) materials[m.material].initial += qty; break;
+            case 'PRODUCTION_PURCHASE': materials[m.material].prod += qty; break;
+            case 'RETURN_ENTRY_SALE':
+            case 'RETURN_EXIT_PURCHASE': materials[m.material].dev += qty; break;
+            case 'ADJUSTMENT_ENTRY': materials[m.material].adjIn += qty; break;
+            case 'ADJUSTMENT_EXIT': materials[m.material].adjOut += Math.abs(qty); break; // Always use absolute for subtraction later
+            case 'OTHER_EXIT': materials[m.material].otherOut += Math.abs(qty); break;
+            case 'BONIFICATION': materials[m.material].bonif += Math.abs(qty); break;
+            case 'SALE': materials[m.material].sale += Math.abs(qty); break;
+            case 'LOSS': materials[m.material].loss += Math.abs(qty); break;
+            case 'REQUISITION': materials[m.material].req += Math.abs(qty); break;
+            case 'FINAL_STOCK': if (finalStockPositions.length === 0) materials[m.material].finalStockReal += qty; break;
+          }
         }
-      } else {
-        materials[m.material].unclassified += Math.abs(m.quantity);
       }
     });
 
     return Object.values(materials).map((m: any) => {
-      const round = (num: number) => Math.round(num * 10000) / 10000;
-      const totalIn = round(m.initial + m.prod + m.dev + m.adjIn); // J8
-      const totalOut = round(m.adjOut + m.otherOut + m.bonif + m.sale + m.loss + m.req + m.unclassified); // Inclui unclassified
-      const subtotal = round(totalIn - totalOut); // R8 (Assuming out is positive mag)
-      const difference = round(subtotal - m.finalStockReal); // T8
+      const totalIn = m.initial + m.prod + m.dev + m.adjIn; // J8
+      const totalOut = m.adjOut + m.otherOut + m.bonif + m.sale + m.loss + m.req; // Q8
+      const subtotal = totalIn - totalOut; // R8 (Assuming out is positive mag)
+      const difference = subtotal - m.finalStockReal; // T8
       return { ...m, totalIn, totalOut, subtotal, difference };
     }).filter((m: any) => 
       m.material.toLowerCase().includes(searchTerm.toLowerCase()) || 
@@ -617,6 +614,7 @@ const MovementsPage: React.FC = () => {
         {[
           { id: 'upload', label: 'Upload MB51', icon: <Download className="w-4 h-4" /> },
           { id: 'list', label: 'Movimentos', icon: <TableIcon className="w-4 h-4" /> },
+          { id: 'reconciliation', label: 'Conciliação', icon: <BarChart3 className="w-4 h-4" /> },
           { id: 'analytics', label: 'Análise Mensal', icon: <BarChart3 className="w-4 h-4" /> },
           { id: 'types', label: 'Configuração de Tipos', icon: <Settings className="w-4 h-4" /> },
         ].map(tab => (
@@ -782,7 +780,6 @@ const MovementsPage: React.FC = () => {
                     <div className="flex-1 space-y-1">
                       <h3 className="text-xs font-black uppercase tracking-widest">Estoque Inicial (E8)</h3>
                       <p className={`text-[10px] font-medium ${darkMode ? 'text-slate-500' : 'text-slate-400'}`}>Planilha "ESTOQUE INICIAL-Anterior"</p>
-                      <p className="text-[10px] text-[#8DC63F] font-bold">{initialStockPositions.length} itens carregados</p>
                     </div>
                     <div className="relative">
                       <input 
@@ -807,7 +804,6 @@ const MovementsPage: React.FC = () => {
                     <div className="flex-1 space-y-1">
                       <h3 className="text-xs font-black uppercase tracking-widest">Estoque Final (S8)</h3>
                       <p className={`text-[10px] font-medium ${darkMode ? 'text-slate-500' : 'text-slate-400'}`}>Planilha "ESTOQUE FINAL-MES ATUAL"</p>
-                      <p className="text-[10px] text-[#8DC63F] font-bold">{finalStockPositions.length} itens carregados</p>
                     </div>
                     <div className="relative">
                       <input 
@@ -1037,23 +1033,8 @@ const MovementsPage: React.FC = () => {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -20 }}
-            className="space-y-8"
+            className="space-y-6"
           >
-            <div className={`p-8 rounded-[32px] border ${darkMode ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-100 shadow-sm'} grid grid-cols-1 md:grid-cols-3 gap-6`}>
-                <div className="space-y-2">
-                    <label className="text-xs font-black uppercase text-slate-500">Movimentações MB51</label>
-                    <input type="file" className="w-full p-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-xs" />
-                </div>
-                <div className="space-y-2">
-                    <label className="text-xs font-black uppercase text-slate-500">Estoque Inicial</label>
-                    <input type="file" className="w-full p-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-xs" />
-                </div>
-                <div className="space-y-2">
-                    <label className="text-xs font-black uppercase text-slate-500">Estoque Final</label>
-                    <input type="file" className="w-full p-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-xs" />
-                </div>
-            </div>
-
             <div className={`p-6 rounded-3xl border ${darkMode ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-100 shadow-sm'} flex flex-col md:flex-row gap-4`}>
               <div className="relative flex-1">
                 <Search className={`absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 ${darkMode ? 'text-slate-500' : 'text-slate-400'}`} />
@@ -1185,7 +1166,7 @@ const MovementsPage: React.FC = () => {
             </div>
           </motion.div>
         )}
-        
+
         {activeTab === 'analytics' && (
           <motion.div
             key="analytics"
@@ -1211,7 +1192,7 @@ const MovementsPage: React.FC = () => {
               </div>
               
               <div className="h-[400px] w-full">
-                <ResponsiveContainer width="100%" height="100%" minHeight={0} minWidth={0}>
+                <ResponsiveContainer width="100%" height="100%">
                   <BarChart data={monthlyData}>
                     <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={darkMode ? '#1e293b' : '#f1f5f9'} />
                     <XAxis 

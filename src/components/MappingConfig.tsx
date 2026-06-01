@@ -20,11 +20,7 @@ const MappingConfig: React.FC<Props> = ({ mapping, onChange, title }) => {
             <input
               type="number"
               value={mapping[field] ?? ''}
-              onChange={(e) => {
-                const val = e.target.value;
-                const num = val === '' ? undefined : parseInt(val);
-                onChange({ ...mapping, [field]: num });
-              }}
+              onChange={(e) => onChange({ ...mapping, [field]: parseInt(e.target.value) })}
               className="px-3 py-2 rounded-lg border text-sm"
             />
           </div>
