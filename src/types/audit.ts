@@ -165,6 +165,12 @@ export interface MaterialMovement {
   batch?: string;
   user: string;
   docNumber: string;
+  comment?: string;
+  postingDate?: string;
+  unit?: string;
+  value?: number;
+  reference?: string;
+  order?: string;
 }
 
 export interface StockPosition {

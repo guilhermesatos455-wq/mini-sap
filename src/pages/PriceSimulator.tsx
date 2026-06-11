@@ -95,14 +95,14 @@ const PriceSimulator: React.FC = () => {
   const historicalAnchors = useMemo(() => {
     if (!selectedMaterial || !resultado?.todosOsItens) return null;
     
-    const movements = resultado.todosOsItens.filter((item: any) => 
+    const historicalRecords = resultado.todosOsItens.filter((item: any) => 
       (item.material || item.Material || item.codigo) === selectedMaterial && 
       (typeof item.valor === 'number' ? item.valor : parseFloat(item.valor)) > 0
     );
 
-    if (movements.length === 0) return null;
+    if (historicalRecords.length === 0) return null;
 
-    const prices = movements.map((m: any) => parseFloat(m.valor)).filter((p: number) => !isNaN(p));
+    const prices = historicalRecords.map((m: any) => parseFloat(m.valor)).filter((p: number) => !isNaN(p));
     
     return {
       min: Math.min(...prices),

@@ -38,6 +38,27 @@ const parseNumber = (val: any): number => {
   return 0;
 };
 
+const isMaterialValido = (material: string | undefined | null) => {
+    if (!material) return false;
+    
+    // Converte para string e remove espaços em branco
+    const matStr = String(material).trim().toLowerCase();
+    
+    // 1. Ignora linhas completamente vazias ou que contenham a palavra "total"
+    if (matStr === '' || matStr.includes('total')) return false;
+    
+    // 2. Bloqueia os cabeçalhos de Centro
+    if (matStr === '1001' || matStr === '1005') return false;
+    
+    // 3. Bloqueia os cabeçalhos de Conta Contábil (como 13400000)
+    // Se a sua empresa usar outras contas (ex: 13400001), você pode adicionar aqui,
+    // ou usar um bloqueio por tamanho se toda conta contábil tiver 8 dígitos e começar com 13.
+    if (matStr === '13400000') return false;
+    if (matStr.startsWith('1340')) return false; // Bloqueia qualquer variação da conta 1340...
+
+    return true; // Se sobreviveu a todos os filtros, é um material real!
+};
+
 const fuzzyDetect = (headers: any[], synonyms: string[]): number => {
   for (let i = 0; i < headers.length; i++) {
     const h = String(headers[i] || '').trim().toUpperCase();
@@ -175,10 +196,13 @@ self.onmessage = async (e) => {
             if (fileType === 'initial' && initialHeaders.length === 0) initialHeaders.push(...headers);
             if (fileType === 'final' && finalHeaders.length === 0) finalHeaders.push(...headers);
 
-            const fMat = fuzzyDetect(headers, ['Material', 'Cód.']);
+            const fMat = fuzzyDetect(headers, ['Material', 'Cód.', 'Cód Material']);
             const fDesc = fuzzyDetect(headers, ['Descrição', 'Texto Breve']);
-            const fPlant = fuzzyDetect(headers, ['Centro', 'Plant', 'Plnt']);
-            const fQtd = fuzzyDetect(headers, ['Estoque', 'Quantidade', 'Livre', 'Final']);
+            const fPlant = fuzzyDetect(headers, ['Centro', 'Plant', 'Plnt', 'Cód Centro']);
+            const fQtd = fuzzyDetect(headers, ['Estoque', 'Quantidade', 'Livre', 'Final', 'Estoque Final']);
+            
+            console.log('DEBUG_STOCK_FILES', { headers, fMat, fDesc, fPlant, fQtd, idxMat, idxPlant, idxQtd, dataStartIdx });
+            
             if (fMat >= 0) idxMat = fMat;
             if (fDesc >= 0) idxDesc = fDesc;
             if (fPlant >= 0) idxPlant = fPlant;
@@ -186,13 +210,14 @@ self.onmessage = async (e) => {
             break;
           }
         }
+        
+        console.log('DEBUG_INDEXES_SELECTED', { idxMat, idxDesc, idxPlant, idxQtd });
 
         for (let i = dataStartIdx; i < data.length; i++) {
           const row = data[i];
-          if (!row || !row[idxMat]) continue;
+          if (!row || !isMaterialValido(row[idxMat])) continue;
 
           const currentPlant = String(row[idxPlant] || '').trim();
-          if (plant && currentPlant && currentPlant !== plant) continue;
 
           const item = {
             material: String(row[idxMat] || '').trim().replace(/^0+/, ''),

@@ -32,6 +32,7 @@ import { useAudit } from '../context/AuditContext';
 import { Link } from 'react-router-dom';
 import { requestBiometricAuth } from '../utils/biometricUtils';
 import RobotControl from '../components/RobotControl';
+import { UserAuth } from '../components/auth/UserAuth';
 
 const SettingsPage: React.FC = () => {
     const { 
@@ -51,6 +52,8 @@ const SettingsPage: React.FC = () => {
     showFinancialImpact, setShowFinancialImpact,
     showMaterialsPMM, setShowMaterialsPMM,
     showRpaAutomation, setShowRpaAutomation,
+    showRecipes, setShowRecipes,
+    showMovements, setShowMovements,
     showBranding, setShowBranding,
     showTaxMatrix, setShowTaxMatrix,
     taxMatrix, setTaxMatrix,
@@ -405,6 +408,9 @@ const SettingsPage: React.FC = () => {
             Personalize o comportamento do motor de auditoria e o mapeamento de arquivos.
           </p>
         </div>
+        <div className="w-80">
+            <UserAuth />
+        </div>
         <div className="flex items-center gap-3">
           <input 
             type="file" 
@@ -469,6 +475,36 @@ const SettingsPage: React.FC = () => {
                 className={`w-full p-3 border rounded-xl text-sm transition-all focus:outline-none focus:ring-2 ${darkMode ? 'bg-slate-800 border-slate-700 text-slate-100 focus:ring-[#8DC63F]/50' : 'border-gray-200 focus:ring-[#8DC63F]/50'}`}
               />
               <p className="mt-2 text-[10px] text-slate-500 italic">Separe os CFOPs por vírgula.</p>
+            </div>
+
+            <div className="pt-4 border-t border-dashed border-slate-700/50">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h4 className={`text-sm font-bold ${darkMode ? 'text-slate-200' : 'text-gray-800'}`}>Habilitar Receitas (Regras)</h4>
+                  <p className={`text-[10px] ${darkMode ? 'text-slate-500' : 'text-gray-500'}`}>Ativa ou desativa a aba de Receitas (Regras).</p>
+                </div>
+                <button 
+                  onClick={() => setShowRecipes(!showRecipes)}
+                  className={`w-12 h-6 rounded-full transition-all relative ${showRecipes ? 'bg-[#8DC63F]' : 'bg-slate-700'}`}
+                >
+                  <div className={`absolute top-1 w-4 h-4 rounded-full bg-white transition-all ${showRecipes ? 'left-7' : 'left-1'}`} />
+                </button>
+              </div>
+            </div>
+
+            <div className="pt-4 border-t border-dashed border-slate-700/50">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h4 className={`text-sm font-bold ${darkMode ? 'text-slate-200' : 'text-gray-800'}`}>Habilitar Movimentações (MB51)</h4>
+                  <p className={`text-[10px] ${darkMode ? 'text-slate-500' : 'text-gray-500'}`}>Ativa ou desativa a aba de Movimentações.</p>
+                </div>
+                <button 
+                  onClick={() => setShowMovements(!showMovements)}
+                  className={`w-12 h-6 rounded-full transition-all relative ${showMovements ? 'bg-[#8DC63F]' : 'bg-slate-700'}`}
+                >
+                  <div className={`absolute top-1 w-4 h-4 rounded-full bg-white transition-all ${showMovements ? 'left-7' : 'left-1'}`} />
+                </button>
+              </div>
             </div>
 
             <div className="pt-4 border-t border-dashed border-slate-700/50">

@@ -46,6 +46,7 @@ const MovementsPage: React.FC = () => {
     movementTypes, 
     setMovementTypes, 
     movements, 
+    setMovements,
     addToast,
     movementFiles,
     setMovementFiles,
@@ -241,77 +242,100 @@ const MovementsPage: React.FC = () => {
   const reconciliationData = useMemo(() => {
     const materials: Record<string, any> = {};
     
+    // Helper para sanitização (Regra 1)
+    const isMaterialValido = (material: string | undefined | null) => {
+        if (!material) return false;
+        const matStr = String(material).trim().toLowerCase();
+        if (matStr === '' || matStr.includes('total')) return false;
+        if (matStr === '1001' || matStr === '1005') return false;
+        if (matStr === '13400000' || matStr.startsWith('1340')) return false;
+        return true;
+    };
+
+    // Helper para padronização (Regra 2)
+    const getMatKey = (m: string | undefined | null) => String(m || '').trim().replace(/^0+/, '');
+
     const typesMap = movementTypes.reduce((acc, type) => {
       acc[type.code] = type;
       return acc;
     }, {} as Record<string, SAPMovementType>);
     
-    const getBase = (m: any) => ({
-      material: m.material,
-      description: m.description,
+    const getBase = (material: string, description: string) => ({
+      material,
+      description,
       initial: 0,
-      prod: 0, // G8
-      dev: 0, // H8
-      adjIn: 0, // I8
-      adjOut: 0, // K8
-      otherOut: 0, // L8
-      bonif: 0, // M8
-      sale: 0, // N8
-      loss: 0, // O8
-      req: 0, // P8
-      finalStockReal: 0 // S8
+      prod: 0,
+      dev: 0,
+      adjIn: 0,
+      adjOut: 0,
+      otherOut: 0,
+      bonif: 0,
+      sale: 0,
+      loss: 0,
+      req: 0,
+      finalStockReal: 0
     });
 
     initialStockPositions.forEach(p => {
-      const materialKey = String(p.material || '').trim().replace(/^0+/, '');
-      if (!materials[materialKey]) materials[materialKey] = getBase({ ...p, material: materialKey });
+      if (!isMaterialValido(p.material)) return;
+      const materialKey = getMatKey(p.material);
+      if (!materials[materialKey]) materials[materialKey] = getBase(materialKey, p.description);
       materials[materialKey].initial += Number(p.quantity) || 0;
     });
 
     finalStockPositions.forEach(p => {
-      const materialKey = String(p.material || '').trim().replace(/^0+/, '');
-      if (!materials[materialKey]) materials[materialKey] = getBase({ ...p, material: materialKey });
+      if (!isMaterialValido(p.material)) return;
+      const materialKey = getMatKey(p.material);
+      if (!materials[materialKey]) materials[materialKey] = getBase(materialKey, p.description);
       materials[materialKey].finalStockReal += Number(p.quantity) || 0;
     });
 
     movements.forEach(m => {
-      if (!materials[m.material]) materials[m.material] = getBase(m);
+      if (!isMaterialValido(m.material)) return;
+      const materialKey = getMatKey(m.material);
+      if (!materials[materialKey]) materials[materialKey] = getBase(materialKey, m.description);
       
       const type = typesMap[m.movementType];
       if (type) {
         let category = type.category;
 
-        // Lógica Dinâmica para códigos específicos
+        // Lógica Dinâmica
         if (['309', '325', '321'].includes(m.movementType)) {
           category = m.quantity >= 0 ? 'ADJUSTMENT_ENTRY' : 'ADJUSTMENT_EXIT';
         }
 
         if (category) {
           const qty = m.quantity;
+          // Regra 4: Saídas como valor absoluto
           switch (category) {
-            case 'INITIAL_STOCK': if (initialStockPositions.length === 0) materials[m.material].initial += qty; break;
-            case 'PRODUCTION_PURCHASE': materials[m.material].prod += qty; break;
+            case 'INITIAL_STOCK': materials[materialKey].initial += qty; break;
+            case 'PRODUCTION_PURCHASE': materials[materialKey].prod += qty; break;
             case 'RETURN_ENTRY_SALE':
-            case 'RETURN_EXIT_PURCHASE': materials[m.material].dev += qty; break;
-            case 'ADJUSTMENT_ENTRY': materials[m.material].adjIn += qty; break;
-            case 'ADJUSTMENT_EXIT': materials[m.material].adjOut += Math.abs(qty); break; // Always use absolute for subtraction later
-            case 'OTHER_EXIT': materials[m.material].otherOut += Math.abs(qty); break;
-            case 'BONIFICATION': materials[m.material].bonif += Math.abs(qty); break;
-            case 'SALE': materials[m.material].sale += Math.abs(qty); break;
-            case 'LOSS': materials[m.material].loss += Math.abs(qty); break;
-            case 'REQUISITION': materials[m.material].req += Math.abs(qty); break;
-            case 'FINAL_STOCK': if (finalStockPositions.length === 0) materials[m.material].finalStockReal += qty; break;
+            case 'RETURN_EXIT_PURCHASE': materials[materialKey].dev += qty; break;
+            case 'ADJUSTMENT_ENTRY': materials[materialKey].adjIn += qty; break;
+            case 'ADJUSTMENT_EXIT': materials[materialKey].adjOut += Math.abs(qty); break;
+            case 'OTHER_EXIT': materials[materialKey].otherOut += Math.abs(qty); break;
+            case 'BONIFICATION': materials[materialKey].bonif += Math.abs(qty); break;
+            case 'SALE': materials[materialKey].sale += Math.abs(qty); break;
+            case 'LOSS': materials[materialKey].loss += Math.abs(qty); break;
+            case 'REQUISITION': materials[materialKey].req += Math.abs(qty); break;
           }
         }
       }
     });
 
     return Object.values(materials).map((m: any) => {
-      const totalIn = m.initial + m.prod + m.dev + m.adjIn; // J8
-      const totalOut = m.adjOut + m.otherOut + m.bonif + m.sale + m.loss + m.req; // Q8
-      const subtotal = totalIn - totalOut; // R8 (Assuming out is positive mag)
-      const difference = subtotal - m.finalStockReal; // T8
-      return { ...m, totalIn, totalOut, subtotal, difference };
+      // Regra 3: Matemática precisa
+      const totalIn = m.initial + m.prod + m.dev + m.adjIn;
+      const totalOut = m.adjOut + m.otherOut + m.bonif + m.sale + m.loss + m.req;
+      const subtotal = m.initial + totalIn - totalOut; // Note: initial is added here to represent totalIn calculated properly based on rule? Wait, rule says TotalIn = sum of inputs, subtotal = Initial + totalIn - totalOut. The initial calculation in Loop already added it. Fixed logic.
+      // Re-evaluating: In the loop, initial is added to materials[materialKey].initial.
+      // If totalIn is "In", then totalIn should be prod + dev + adjIn. 
+      // Then Subtotal = Initial + totalIn - totalOut.
+      const totalInOnlyInputs = m.prod + m.dev + m.adjIn; // Fix math based on req.
+      const finalSubtotal = m.initial + totalInOnlyInputs - totalOut; 
+      const difference = finalSubtotal - m.finalStockReal;
+      return { ...m, totalIn: totalInOnlyInputs, totalOut, subtotal: finalSubtotal, difference };
     }).filter((m: any) => 
       m.material.toLowerCase().includes(searchTerm.toLowerCase()) || 
       m.description.toLowerCase().includes(searchTerm.toLowerCase())
@@ -395,15 +419,17 @@ const MovementsPage: React.FC = () => {
     // --- NEW: SHEET 0: ESTOQUE INICIAL ---
     if (initialStockPositions.length > 0) {
       const rowsInitialRaw = initialStockPositions.map(p => p.rawData || [p.material, p.description, p.plant, p.quantity]);
-      const wsInitial = XLSX.utils.aoa_to_sheet([initialStockHeaders.length > 0 ? initialStockHeaders : ["Material", "Descrição", "Centro", "Quantidade"], ...rowsInitialRaw]);
-      XLSX.utils.book_append_sheet(wb, wsInitial, "ESTOQUE INICIAL-Anterior");
+      const headerList = initialStockHeaders.length > 0 ? initialStockHeaders : ["Material", "Descrição", "Centro", "Quantidade"];
+      const wsInitial = XLSX.utils.aoa_to_sheet([headerList, ...rowsInitialRaw]);
+      XLSX.utils.book_append_sheet(wb, wsInitial, "ESTOQUE INICIAL");
     }
 
     // --- NEW: SHEET 0.1: ESTOQUE FINAL ---
     if (finalStockPositions.length > 0) {
       const rowsFinalRaw = finalStockPositions.map(p => p.rawData || [p.material, p.description, p.plant, p.quantity]);
-      const wsFinal = XLSX.utils.aoa_to_sheet([finalStockHeaders.length > 0 ? finalStockHeaders : ["Material", "Descrição", "Centro", "Quantidade"], ...rowsFinalRaw]);
-      XLSX.utils.book_append_sheet(wb, wsFinal, "ESTOQUE FINAL-MES ATUAL");
+      const headerList = finalStockHeaders.length > 0 ? finalStockHeaders : ["Material", "Descrição", "Centro", "Quantidade"];
+      const wsFinal = XLSX.utils.aoa_to_sheet([headerList, ...rowsFinalRaw]);
+      XLSX.utils.book_append_sheet(wb, wsFinal, "ESTOQUE FINAL");
     }
 
     const dataStyle = {
@@ -970,12 +996,26 @@ const MovementsPage: React.FC = () => {
                       <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-slate-500 text-right">Quantidade</th>
                       <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-slate-500">Centro/Dep</th>
                       <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-slate-500">Usuário</th>
+                      <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-slate-500">Comentário</th>
+                      <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-slate-500">Ações</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
                     {paginatedMovements.length > 0 ? (
                       paginatedMovements.map(m => {
                         const type = movementTypes.find(t => t.code === m.movementType);
+                        
+                        const cloneMovement = (movement: MaterialMovement) => {
+                          const newMovement = {
+                            ...movement,
+                            id: Math.random().toString(36).substring(2, 9),
+                            docNumber: `${movement.docNumber}-CLONE`,
+                            comment: `Clone de ${movement.docNumber}`
+                          };
+                          setMovements([...movements, newMovement]);
+                          addToast('Movimento clonado!', 'success');
+                        };
+
                         return (
                           <tr key={m.id} className={`group transition-colors ${darkMode ? 'hover:bg-slate-800/50' : 'hover:bg-slate-50/50'}`}>
                             <td className="px-6 py-4">
@@ -1006,6 +1046,27 @@ const MovementsPage: React.FC = () => {
                             </td>
                             <td className="px-6 py-4">
                               <span className="text-xs font-bold text-slate-500">{m.user}</span>
+                            </td>
+                            <td className="px-6 py-4">
+                              <input 
+                                type="text"
+                                value={m.comment || ''}
+                                onChange={(e) => {
+                                  const updated = movements.map(mov => mov.id === m.id ? { ...mov, comment: e.target.value } : mov);
+                                  setMovements(updated);
+                                }}
+                                className={`w-full px-2 py-1 bg-transparent border-b ${darkMode ? 'border-slate-700 text-slate-200' : 'border-slate-200 text-slate-700'} text-xs focus:border-[#8DC63F] outline-none`}
+                                placeholder="Adicionar comentário..."
+                              />
+                            </td>
+                            <td className="px-6 py-4">
+                              <button
+                                onClick={() => cloneMovement(m)}
+                                className={`p-2 rounded-lg transition-colors ${darkMode ? 'text-slate-400 hover:text-[#8DC63F] hover:bg-slate-800' : 'text-slate-400 hover:text-[#78AF32] hover:bg-slate-50'}`}
+                                title="Clonar movimento"
+                              >
+                                <Plus className="w-4 h-4" />
+                              </button>
                             </td>
                           </tr>
                         );

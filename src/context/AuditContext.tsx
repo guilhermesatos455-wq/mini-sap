@@ -103,6 +103,10 @@ interface AuditContextType {
   setShowMaterialsPMM: (b: boolean) => void;
   showRpaAutomation: boolean;
   setShowRpaAutomation: (b: boolean) => void;
+  showRecipes: boolean;
+  setShowRecipes: (b: boolean) => void;
+  showMovements: boolean;
+  setShowMovements: (b: boolean) => void;
   showBranding: boolean;
   setShowBranding: (b: boolean) => void;
   showTaxMatrix: boolean;
@@ -172,7 +176,7 @@ interface AuditContextType {
   bulkAproveDivergencia: (ids: (number | string)[]) => void;
   rejeitarDivergencia: (id: number | string, motivo: string) => void;
   bulkRejeitarDivergencia: (ids: (number | string)[], motivo: string) => void;
-  handleReset: () => void;
+  handleReset: () => Promise<void>;
   iniciarProcessamento: () => Promise<void>;
   recipes: AuditRecipe[];
   setRecipes: (recipes: AuditRecipe[]) => void;
@@ -458,6 +462,14 @@ export const AuditProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     const saved = safeLocalStorageGet<any>('miniSapSettings', null);
     return saved ? saved.showRpaAutomation || false : false;
   });
+  const [showRecipes, setShowRecipes] = useState(() => {
+    const saved = safeLocalStorageGet<any>('miniSapSettings', null);
+    return saved ? saved.showRecipes ?? false : false;
+  });
+  const [showMovements, setShowMovements] = useState(() => {
+    const saved = safeLocalStorageGet<any>('miniSapSettings', null);
+    return saved ? saved.showMovements ?? false : false;
+  });
   const [showBranding, setShowBranding] = useState(() => {
     const saved = safeLocalStorageGet<any>('miniSapSettings', null);
     return saved ? saved.showBranding ?? true : true;
@@ -627,15 +639,15 @@ export const AuditProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       { code: '602', description: 'Estorno da venda (Produto Acabado)', direction: 'Entrada', active: true, category: 'SALE' },
       
       // Devolução Entrada
-      { code: '657', description: 'Devolução de entrada (Venda)', direction: 'Entrada', active: true, category: 'RETURN_ENTRY' },
-      { code: '658', description: 'Estorno da devolução de entrada (Venda)', direction: 'Saída', active: true, category: 'RETURN_ENTRY' },
-      { code: '653', description: 'Devolução de entrada de venda', direction: 'Entrada', active: true, category: 'RETURN_ENTRY' },
-      { code: '654', description: 'Estorno devolução entrada venda', direction: 'Saída', active: true, category: 'RETURN_ENTRY' },
+      { code: '657', description: 'Devolução de entrada (Venda)', direction: 'Entrada', active: true, category: 'RETURN_ENTRY_SALE' },
+      { code: '658', description: 'Estorno da devolução de entrada (Venda)', direction: 'Saída', active: true, category: 'RETURN_ENTRY_SALE' },
+      { code: '653', description: 'Devolução de entrada de venda', direction: 'Entrada', active: true, category: 'RETURN_ENTRY_SALE' },
+      { code: '654', description: 'Estorno devolução entrada venda', direction: 'Saída', active: true, category: 'RETURN_ENTRY_SALE' },
       
       // Devolução Compras
-      { code: '122', description: 'Devolução de saída (Compras)', direction: 'Saída', active: true, category: 'RETURN_ENTRY' },
-      { code: '123', description: 'Estorno da devolução de saída (Compras)', direction: 'Entrada', active: true, category: 'RETURN_ENTRY' },
-      { code: '502', description: 'Devolução compras', direction: 'Saída', active: true, category: 'RETURN_ENTRY' },
+      { code: '122', description: 'Devolução de saída (Compras)', direction: 'Saída', active: true, category: 'RETURN_EXIT_PURCHASE' },
+      { code: '123', description: 'Estorno da devolução de saída (Compras)', direction: 'Entrada', active: true, category: 'RETURN_EXIT_PURCHASE' },
+      { code: '502', description: 'Devolução compras', direction: 'Saída', active: true, category: 'RETURN_EXIT_PURCHASE' },
       
       // Bonificação
       { code: '973', description: 'Bonificação (Produto Acabado)', direction: 'Saída', active: true, category: 'BONIFICATION' },
@@ -943,8 +955,15 @@ export const AuditProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   useEffect(() => {
     if (aiMessages.length > 0) {
       setLargeData('audit_ai_messages', aiMessages);
+
+      // Sincronizar com Firestore se o usuário estiver logado
+      if (aiUser && aiUser.uid) {
+        const chatRef = doc(db, 'users', aiUser.uid, 'chat', 'history');
+        setDoc(chatRef, { messages: aiMessages, updatedAt: new Date().toISOString() }, { merge: true })
+          .catch(err => console.error('Erro ao sincronizar historico:', err));
+      }
     }
-  }, [aiMessages]);
+  }, [aiMessages, aiUser]);
 
   useEffect(() => {
     if (aiUser) {
@@ -1262,7 +1281,7 @@ export const AuditProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     }
   }, [filesNF, fileCKM3, iniciarProcessamentoWorker, taxMatrix, decisionHistory, justificationBase]);
 
-  const handleReset = useCallback(() => {
+  const handleReset = useCallback(async () => {
     setFilesNF([]);
     setFileCKM3(null);
     setResultado(null);
@@ -1270,7 +1289,27 @@ export const AuditProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     setWarnings([]);
     setProgressPercent(0);
     setIsProcessing(false);
-    delIDB('miniSap_lastResultado').catch(() => {});
+    setMovements([]);
+    setInitialStockPositions([]);
+    setFinalStockPositions([]);
+    setInitialStockHeaders([]);
+    setFinalStockHeaders([]);
+    setInitialStockFiles([]);
+    setFinalStockFiles([]);
+    setMovementFiles([]);
+    
+    // Clear IndexedDB
+    await Promise.all([
+      delIDB('miniSap_lastResultado'),
+      delIDB('miniSapInitialStock'),
+      delIDB('miniSapFinalStock'),
+      delIDB('miniSapMovements'),
+      delIDB('miniSapInitialHeaders'),
+      delIDB('miniSapFinalHeaders'),
+      delIDB('miniSapDecisionHistory'),
+      delIDB('miniSapJustificationBase'),
+      delIDB('audit_ai_messages')
+    ]).catch(() => {});
   }, []);
 
   const contextValue = React.useMemo(() => ({
@@ -1305,6 +1344,8 @@ export const AuditProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     showFinancialImpact, setShowFinancialImpact,
     showMaterialsPMM, setShowMaterialsPMM,
     showRpaAutomation, setShowRpaAutomation,
+    showRecipes, setShowRecipes,
+    showMovements, setShowMovements,
     showBranding, setShowBranding,
     showTaxMatrix, setShowTaxMatrix,
     showColunas, setShowColunas,
@@ -1350,6 +1391,8 @@ export const AuditProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     showFinancialImpact,
     showMaterialsPMM,
     showRpaAutomation,
+    showRecipes,
+    showMovements,
     showBranding,
     showTaxMatrix,
     showColunas,

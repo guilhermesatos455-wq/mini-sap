@@ -7,6 +7,7 @@ import nodemailer from 'nodemailer';
 import dotenv from 'dotenv';
 import rateLimit from 'express-rate-limit';
 import admin from 'firebase-admin';
+import { chatWithGemini } from './src/lib/gemini.js';
 
 // Initialize firebase admin
 // Note: This assumes default credentials are available in the Cloud Run environment
@@ -38,6 +39,18 @@ async function startServer() {
   const PORT = 3000;
 
   app.use(express.json());
+
+  // API Route for AI Chat
+  app.post('/api/ai/chat', async (req, res) => {
+    const { messages } = req.body;
+    try {
+        const response = await chatWithGemini(messages);
+        res.json({ content: response });
+    } catch (error) {
+        console.error('Gemini Error:', error);
+        res.status(500).json({ error: 'Falha na comunicação com o Gemini.' });
+    }
+  });
 
   // API Route for sending emails
   app.post('/api/send-email', emailLimiter, async (req, res) => {

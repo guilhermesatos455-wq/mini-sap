@@ -1,12 +1,15 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState } from 'react';
 import { Outlet } from 'react-router-dom';
 import Sidebar from './Sidebar';
 import BottomNav from './BottomNav';
-import ToastContainer from './ToastContainer';
+import { ToastContainer } from './ToastContainer';
+import { NatuAssistChat } from './NatuAssistChat';
 import { useAudit } from '../context/AuditContext';
+import { Bot } from 'lucide-react';
 
 const Layout: React.FC = () => {
   const { darkMode } = useAudit();
+  const [showChat, setShowChat] = useState(false);
 
   return (
     <div className={`flex h-screen overflow-hidden relative ${darkMode ? 'bg-slate-900 text-slate-100' : 'bg-slate-50 text-gray-900'}`}>
@@ -18,6 +21,16 @@ const Layout: React.FC = () => {
         </div>
       </main>
       <BottomNav />
+      {showChat ? (
+        <NatuAssistChat onClose={() => setShowChat(false)} />
+      ) : (
+        <button 
+          onClick={() => setShowChat(true)}
+          className="fixed bottom-24 md:bottom-6 right-6 z-[60] p-4 bg-[#8DC63F] text-white rounded-full shadow-lg hover:scale-105 transition-transform"
+        >
+          <Bot className="w-6 h-6" />
+        </button>
+      )}
     </div>
   );
 };

@@ -10,7 +10,7 @@ const parseExcelDate = (val: any): Date | null => {
   
   if (typeof val === 'number') {
     try {
-      const parsed = XLSX.SSF.parse_date_code(val);
+      const parsed = (XLSX as any).SSF.parse_date_code(val);
       return new Date(parsed.y, parsed.m - 1, parsed.d);
     } catch (e) {
       return null;
@@ -84,8 +84,6 @@ self.onmessage = (e) => {
     // Clear workbook reference to save memory
     wbCKM3 = null;
 
-    self.postMessage({ type: 'status', message: `⏳ Lendo arquivos de Notas Fiscais... (CKM3 lido: ${dataCKM3.length} linhas)` });
-    
     const limiteTol = (tolerancia || 0) / 100;
     const cfopsSet = new Set(cfops.toUpperCase().split(',').map((s: string) => s.trim()).filter(Boolean));
     
@@ -162,11 +160,22 @@ self.onmessage = (e) => {
     // 2. Indexação do CKM3
     const startRowCkm3 = 1;
     const headersCKM3 = dataCKM3[0] || [];
-    const idxCkm3Mat = fuzzyDetect(headersCKM3, ['Material', 'Cod. Material', 'Produto', 'Cod. Mat'], mapColunas.ckm3Mat || 'C');
+    
+    // --- Nova Validação Robust de Cabeçalhos CKM3 ---
+    const checkHeader = (synonyms: string[], colConfig: string, requiredName: string) => {
+        const idx = fuzzyDetect(headersCKM3, synonyms, colConfig);
+        if (idx === -1) throw new Error(`Arquivo CKM3 inválido ou mal configurado: Não foi possível identificar a coluna obrigatória "${requiredName}". Verifique o cabeçalho do arquivo.`);
+        return idx;
+    };
+    
+    // Validar colunas críticas do CKM3
+    const idxCkm3Mat = checkHeader(['Material', 'Cod. Material', 'Produto', 'Cod. Mat'], mapColunas.ckm3Mat || 'C', 'Material');
+    const idxCkm3Qtd = checkHeader(['Quantidade', 'Estoque', 'Qtd', 'Saldo'], mapColunas.ckm3Qtd || 'I', 'Quantidade');
+    const idxCkm3Centro = checkHeader(['Centro', 'Planta', 'Plant', 'Local'], mapColunas.ckm3Centro || 'C', 'Centro');
+    const idxCkm3Desc = checkHeader(['Descrição', 'Nome', 'Texto', 'Description', 'Material Desc'], mapColunas.ckm3Desc || 'D', 'Descrição');
+    // Custo é fixo 'L' no código, vamos deixar assim por enquanto, ou validar se existe na linha header se necessário
     const idxCkm3Custo = XLSX.utils.decode_col('L');
-    const idxCkm3Qtd = fuzzyDetect(headersCKM3, ['Quantidade', 'Estoque', 'Qtd', 'Saldo'], mapColunas.ckm3Qtd || 'I');
-    const idxCkm3Centro = fuzzyDetect(headersCKM3, ['Centro', 'Planta', 'Plant', 'Local'], mapColunas.ckm3Centro || 'C');
-    const idxCkm3Desc = fuzzyDetect(headersCKM3, ['Descrição', 'Nome', 'Texto', 'Description', 'Material Desc'], mapColunas.ckm3Desc || 'D');
+    
     const idxCkm3Categoria = fuzzyDetect(headersCKM3, ['Categoria', 'Cat.', 'Category'], mapColunas.ckm3Categoria || 'G');
     const categoriaFiltroRaw = mapColunas.ckm3CategoriaFiltro || [];
     const categoriaFiltro = Array.isArray(categoriaFiltroRaw) 
@@ -188,7 +197,8 @@ self.onmessage = (e) => {
       
       const codMat = linha[idxCkm3Mat];
       const custo = parseNumber(linha[idxCkm3Custo]);
-      const categoria = String(linha[idxCkm3Categoria] || '').trim().toUpperCase();
+      // Use idxCkm3Categoria se for >= 0
+      const categoria = idxCkm3Categoria >= 0 ? String(linha[idxCkm3Categoria] || '').trim().toUpperCase() : '';
       const processo = String(linha[idxCkm3Processo] || '').trim().toUpperCase();
 
       // Lógica de Filtro por Categoria (Coluna G)
@@ -275,6 +285,7 @@ self.onmessage = (e) => {
       // 3. Processamento das NFs (Lógica Sênior: Inicia na Linha 8 / Índice 7)
       const startRowNf = 7;
       const headersNF = dataNF[startRowNf - 1] || [];
+      const rangeNF = { s: {c: 0, r: startRowNf}, e: {c: 30, r: dataNF.length - 1} }; // Approximation since wbNF is null
       
       const idxNfCfop = fuzzyDetect(headersNF, ['CFOP', 'C.F.O.P'], mapColunas.nfCfop || 'H');
       const idxNfMat = fuzzyDetect(headersNF, ['Material', 'Cod. Material'], mapColunas.nfMat || 'K');
@@ -311,26 +322,31 @@ self.onmessage = (e) => {
         idxNfPrecoSemFrete, idxNfPrecoComFrete, idxNfValorLiqSemFrete, idxNfValorLiqComFrete,
         idxNfValorTotalSemFrete, idxNfValorTotalComFrete
       };
+      
+      // --- Validação robusta de Cabeçalhos NF ---
+      const requiredNf = [{syns: ['CFOP', 'C.F.O.P'], name: 'CFOP', idx: idxNfCfop}];
+      for (const req of requiredNf) {
+          if (req.idx === -1) throw new Error(`Arquivo de NF "${fileName}" inválido: Não encontrada coluna obrigatória "${req.name}".`);
+      }
+
       nfIndices.push(indices);
       nfStartRows.push(startRowNf);
       
       totalLinhasGlobal += Math.max(0, dataNF.length - startRowNf);
-
-      // Pass 1 logic: update dictNfMedia and collect unique values
-      for (let i = startRowNf; i < dataNF.length; i++) {
-        const linha = dataNF[i];
-        if (!linha) continue;
-        
+      
+      // Pass 1 logic: Pre-scan row-by-row
+      for (let r = startRowNf; r < dataNF.length; r++) {
+        const linha = dataNF[r];
         const cfopVal = linha[idxNfCfop];
-        // Normalizar CFOP: remove pontos e espaços para garantir match (ex: 1.101AA -> 1101AA)
         const cfopRaw = String(cfopVal || '').trim().toUpperCase();
         const cfop = cfopRaw.replace(/\./g, '');
         
         if (cfop !== '') {
-          cfopsSetUnique.add(cfopRaw); // Coleta o original para mostrar ao usuário
+          cfopsSetUnique.add(cfopRaw);
           
           if (cfopsSet.has(cfop)) {
-            const codMatNF = padronizarMaterial(linha[idxNfMat]);
+            const rawMat = linha[idxNfMat];
+            const codMatNF = padronizarMaterial(rawMat);
             const precoEfetivo = parseNumber(linha[idxNfPreco]);
             const qtd = parseNumber(linha[idxNfQtd]);
             

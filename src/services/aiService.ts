@@ -24,74 +24,27 @@ class AIService {
   }
 
   async chat(messages: Message[], onStream?: (text: string) => void): Promise<string> {
-    const endpoints = [this.config.endpoint, 'http://127.0.0.1:8080'];
-    let lastError: any = null;
+    try {
+      const response = await fetch('/api/ai/chat', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          messages,
+        }),
+      });
 
-    for (const baseEndpoint of endpoints) {
-      try {
-        const prompt = messages.map(m => {
-          const role = m.role === 'user' ? 'Usuário' : (m.role === 'system' ? 'Sistema' : 'Assistente');
-          return `${role}: ${m.content}`;
-        }).join('\n') + '\nAssistente:';
-
-        const response = await fetch(`${baseEndpoint}/completion`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            prompt: prompt,
-            stream: !!onStream,
-            n_predict: this.config.maxTokens,
-            temperature: this.config.temperature,
-          }),
-        });
-
-        if (!response.ok) {
-          throw new Error(`AI Service Error: ${response.statusText}`);
-        }
-
-        if (onStream) {
-          const reader = response.body?.getReader();
-          const decoder = new TextDecoder();
-          let fullText = '';
-
-          if (reader) {
-            while (true) {
-              const { done, value } = await reader.read();
-              if (done) break;
-              
-              const chunk = decoder.decode(value);
-              const lines = chunk.split('\n');
-              
-              for (const line of lines) {
-                if (!line.trim()) continue;
-                try {
-                  const parsed = JSON.parse(line.replace('data: ', ''));
-                  const content = parsed.content || '';
-                  fullText += content;
-                  onStream(fullText);
-                  if (parsed.stop) break;
-                } catch (e) {
-                  // Ignore parse errors for incomplete chunks
-                }
-              }
-            }
-          }
-          return fullText;
-        } else {
-          const data = await response.json();
-          return data.content;
-        }
-      } catch (error) {
-        lastError = error;
-        console.warn(`Failed to connect to ${baseEndpoint}, trying next...`);
-        continue;
+      if (!response.ok) {
+        throw new Error(`AI Service Error: ${response.statusText}`);
       }
-    }
 
-    console.error('All AI endpoints failed:', lastError);
-    throw lastError;
+      const data = await response.json();
+      return data.content;
+    } catch (error) {
+      console.error('All AI endpoints failed:', error);
+      throw error;
+    }
   }
 
   // Helper to analyze audit data

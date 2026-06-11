@@ -19,7 +19,7 @@ import Logo from './Logo';
 import { useAudit } from '../context/AuditContext';
 
 const Sidebar: React.FC = React.memo(() => {
-  const { darkMode, setDarkMode, branding, showMaterialsPMM } = useAudit();
+  const { darkMode, setDarkMode, branding, showMaterialsPMM, showRecipes, showMovements } = useAudit();
 
   const navigation = useMemo(() => [
     {
@@ -36,13 +36,13 @@ const Sidebar: React.FC = React.memo(() => {
       items: [
         ...(showMaterialsPMM ? [{ to: '/material-dashboard', icon: <Box className="w-4 h-4" />, label: 'Materiais & PMM' }] : []),
         { to: '/simulator', icon: <Calculator className="w-4 h-4" />, label: 'Simulador' },
-        { to: '/recipes', icon: <ScrollText className="w-4 h-4" />, label: 'Receitas (Regras)' },
+        ...(showRecipes ? [{ to: '/recipes', icon: <ScrollText className="w-4 h-4" />, label: 'Receitas (Regras)' }] : []),
       ]
     },
     {
       title: 'Logística SAP',
       items: [
-        { to: '/movements', icon: <RefreshCcw className="w-4 h-4" />, label: 'Movimentações (MB51)' },
+        ...(showMovements ? [{ to: '/movements', icon: <RefreshCcw className="w-4 h-4" />, label: 'Movimentações (MB51)' }] : []),
       ]
     },
     {
@@ -52,7 +52,7 @@ const Sidebar: React.FC = React.memo(() => {
         { to: '/help', icon: <HelpCircle className="w-4 h-4" />, label: 'Suporte & Guia' },
       ]
     }
-  ], [showMaterialsPMM]);
+  ], [showMaterialsPMM, showRecipes, showMovements]);
 
   return (
     <aside className={`hidden md:flex w-64 flex-shrink-0 border-r transition-all duration-300 flex flex-col ${darkMode ? 'bg-slate-900 border-slate-800' : 'bg-white border-gray-200 shadow-xl'}`}>

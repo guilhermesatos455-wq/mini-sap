@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+import { AuthProvider } from './context/AuthContext';
 import { AuditProvider, useAudit } from './context/AuditContext';
 import Layout from './components/Layout';
 import UploadPage from './pages/Upload';
@@ -54,33 +55,35 @@ const BanGuard: React.FC<{ children: React.ReactNode }> = ({ children }) => {
 
 const App: React.FC = () => {
   return (
-    <AuditProvider>
-      <BanGuard>
-        <Router>
-          <ErrorBoundary>
-            <Routes>
-              <Route path="/" element={<Layout />}>
-                <Route index element={<UploadPage />} />
-                <Route path="dashboard" element={<DashboardPage />} />
-                <Route path="details" element={
-                  <ErrorBoundary>
-                    <AuditDetailsPage />
-                  </ErrorBoundary>
-                } />
-                <Route path="history" element={<HistoryPage />} />
-                <Route path="movements" element={<MovementsPage />} />
-                <Route path="material-dashboard" element={<MaterialDashboardPage />} />
-                <Route path="simulator" element={<PriceSimulatorPage />} />
-                <Route path="recipes" element={<RecipesPage />} />
-                <Route path="settings" element={<SettingsPage />} />
-                <Route path="help" element={<HelpPage />} />
-                <Route path="ai-terms" element={<AITermsPage />} />
-              </Route>
-            </Routes>
-          </ErrorBoundary>
-        </Router>
-      </BanGuard>
-    </AuditProvider>
+    <AuthProvider>
+      <AuditProvider>
+        <BanGuard>
+          <Router>
+            <ErrorBoundary>
+              <Routes>
+                <Route path="/" element={<Layout />}>
+                  <Route index element={<UploadPage />} />
+                  <Route path="dashboard" element={<DashboardPage />} />
+                  <Route path="details" element={
+                    <ErrorBoundary>
+                      <AuditDetailsPage />
+                    </ErrorBoundary>
+                  } />
+                  <Route path="history" element={<HistoryPage />} />
+                  <Route path="movements" element={<MovementsPage />} />
+                  <Route path="material-dashboard" element={<MaterialDashboardPage />} />
+                  <Route path="simulator" element={<PriceSimulatorPage />} />
+                  <Route path="recipes" element={<RecipesPage />} />
+                  <Route path="settings" element={<SettingsPage />} />
+                  <Route path="help" element={<HelpPage />} />
+                  <Route path="ai-terms" element={<AITermsPage />} />
+                </Route>
+              </Routes>
+            </ErrorBoundary>
+          </Router>
+        </BanGuard>
+      </AuditProvider>
+    </AuthProvider>
   );
 };
 
