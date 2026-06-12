@@ -114,6 +114,7 @@ export interface ResultadoAuditoria {
   linhasCkm3Processadas: number;
   materiaisNoCkm3: number;
   dataProcessamento: string;
+  mesReferencia?: string;
 }
 
 export interface ShowColunas {
@@ -129,6 +130,16 @@ export interface ShowColunas {
   valorLiqComFrete: boolean;
   valorTotalSemFrete: boolean;
   valorTotalComFrete: boolean;
+  tipoMaterialCKM3: boolean;
+  precoMedioCKM3: boolean;
+  matPrimaCKM3: boolean;
+  embalagemCKM3: boolean;
+  terceirosCKM3: boolean;
+  reparoCKM3: boolean;
+  modCKM3: boolean;
+  maquinaCKM3: boolean;
+  moiCKM3: boolean;
+  ggfCKM3: boolean;
 }
 
 export type MovementCategory = 

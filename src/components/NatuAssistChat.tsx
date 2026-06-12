@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { Send, Bot, X, Loader2, Download } from 'lucide-react';
 import { ChatErrorBoundary } from './ChatErrorBoundary';
+import { useAuth } from '../context/AuthContext';
 import { useAudit } from '../context/AuditContext';
 import { Message } from '../../services/aiService';
 
@@ -10,6 +11,7 @@ interface NatuAssistChatProps {
 
 export const NatuAssistChat: React.FC<NatuAssistChatProps> = ({ onClose }) => {
   const { ai, darkMode, resultado, movements, initialStockPositions, finalStockPositions, recipes, historico, cfops, dataInicio, dataFim } = useAudit();
+  const { user, signInWithGoogle } = useAuth();
   const [messages, setMessages] = useState<Message[]>([
     { role: 'assistant', content: 'Olá! Sou o NatuAssist, seu assistente de auditoria inteligente. Como posso ajudar você hoje com os dados auditados, movimentações ou estoques?' }
   ]);
@@ -101,23 +103,34 @@ export const NatuAssistChat: React.FC<NatuAssistChatProps> = ({ onClose }) => {
             </div>
 
             <div className={`p-4 border-t ${darkMode ? 'border-slate-700' : 'border-gray-100'}`}>
-                <div className="flex flex-wrap gap-2 mb-3">
-                    {suggestions.map(s => (
-                        <button key={s} onClick={() => handleSend(s)} className={`text-xs px-3 py-1 rounded-full ${darkMode ? 'bg-slate-800 text-slate-300 hover:bg-slate-700' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}>
-                            {s}
-                        </button>
-                    )) }
-                </div>
-                <div className="flex items-center gap-2">
-                    <input 
-                        value={input}
-                        onChange={(e) => setInput(e.target.value)}
-                        onKeyPress={(e) => e.key === 'Enter' && handleSend()}
-                        className={`flex-1 p-3 rounded-xl text-sm border ${darkMode ? 'bg-slate-800 border-slate-700 text-slate-100' : 'border-gray-200'}`}
-                        placeholder="Pergunte ao NatuAssist..."
-                    />
-                    <button onClick={() => handleSend()} className="p-3 bg-[#8DC63F] text-white rounded-xl hover:bg-[#78AF32]"><Send className="w-5 h-5"/></button>
-                </div>
+                {user ? (
+                    <>
+                        <div className="flex flex-wrap gap-2 mb-3">
+                            {suggestions.map(s => (
+                                <button key={s} onClick={() => handleSend(s)} className={`text-xs px-3 py-1 rounded-full ${darkMode ? 'bg-slate-800 text-slate-300 hover:bg-slate-700' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}>
+                                    {s}
+                                </button>
+                            )) }
+                        </div>
+                        <div className="flex items-center gap-2">
+                            <input 
+                                value={input}
+                                onChange={(e) => setInput(e.target.value)}
+                                onKeyPress={(e) => e.key === 'Enter' && handleSend()}
+                                className={`flex-1 p-3 rounded-xl text-sm border ${darkMode ? 'bg-slate-800 border-slate-700 text-slate-100' : 'border-gray-200'}`}
+                                placeholder="Pergunte ao NatuAssist..."
+                            />
+                            <button onClick={() => handleSend()} className="p-3 bg-[#8DC63F] text-white rounded-xl hover:bg-[#78AF32]"><Send className="w-5 h-5"/></button>
+                        </div>
+                    </>
+                ) : (
+                    <button 
+                        onClick={signInWithGoogle}
+                        className="w-full flex items-center justify-center gap-2 p-3 rounded-xl bg-[#8DC63F] text-white font-bold hover:bg-[#78AF32]"
+                    >
+                        Login com Google para interagir
+                    </button>
+                )}
             </div>
         </div>
     </ChatErrorBoundary>

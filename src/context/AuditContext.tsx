@@ -34,8 +34,8 @@ interface AuditContextType {
   setDarkMode: (val: boolean) => void;
   filesNF: File[];
   setFilesNF: (files: File[]) => void;
-  fileCKM3: File | null;
-  setFileCKM3: (file: File | null) => void;
+  filesCKM3: File[];
+  setFilesCKM3: (files: File[]) => void;
   resultado: any | null;
   setResultado: (res: any | null) => void;
   status: string;
@@ -238,7 +238,7 @@ const handleFirestoreError = (error: unknown, operationType: OperationType, path
 export const AuditProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [darkMode, setDarkMode] = useState(() => safeLocalStorageGet<string>('miniSapDarkMode', 'false') === 'true');
   const [filesNF, setFilesNF] = useState<File[]>([]);
-  const [fileCKM3, setFileCKM3] = useState<File | null>(null);
+  const [filesCKM3, setFilesCKM3] = useState<File[]>([]);
   const [resultado, setResultado] = useState<any | null>(null);
   const [toasts, setToasts] = useState<{ id: number, message: string, type: 'success' | 'error' | 'info' }[]>([]);
 
@@ -256,15 +256,23 @@ export const AuditProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   
   const [mapColunas, setMapColunas] = useState(() => {
     const defaultMap = {
-      ckm3Mat: 'C',
-      ckm3Custo: 'L',
-      ckm3Qtd: 'I',
-      ckm3Centro: 'C',
-      ckm3Desc: 'D',
-      ckm3Categoria: 'G',
+      ckm3Mat: 'B',
+      ckm3Custo: 'G',
+      ckm3Qtd: 'F',
+      ckm3Centro: 'A',
+      ckm3Desc: 'C',
+      ckm3Categoria: 'D',
       ckm3CategoriaFiltro: ['Entradas'],
-      ckm3Processo: 'H',
-      ckm3ProcessoFiltro: [],
+      ckm3TipoMaterial: 'E',
+      ckm3PrecoMedio: 'H',
+      ckm3MatPrima: 'I',
+      ckm3Embalagem: 'J',
+      ckm3Terceiros: 'K',
+      ckm3Reparo: 'L',
+      ckm3Mod: 'M',
+      ckm3Maquina: 'N',
+      ckm3Moi: 'O',
+      ckm3Ggf: 'P',
       ckm3QtdJan: 'K',
       ckm3VlrJan: 'L',
       ckm3QtdFev: 'M',
@@ -307,12 +315,6 @@ export const AuditProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       nfCategoriaNF: 'O',
       nfOrigemMaterial: 'R',
       nfDataLancamento: 'A',
-      precoSemFrete: 'V',
-      precoComFrete: 'W',
-      valorLiqSemFrete: 'X',
-      valorLiqComFrete: 'Y',
-      valorTotalSemFrete: 'Z',
-      valorTotalComFrete: 'AA'
     };
     const saved = safeLocalStorageGet<any>('miniSapSettings', null);
     if (saved) {
@@ -492,6 +494,16 @@ export const AuditProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       valorLiqComFrete: false,
       valorTotalSemFrete: false,
       valorTotalComFrete: false,
+      tipoMaterialCKM3: false,
+      precoMedioCKM3: false,
+      matPrimaCKM3: false,
+      embalagemCKM3: false,
+      terceirosCKM3: false,
+      reparoCKM3: false,
+      modCKM3: false,
+      maquinaCKM3: false,
+      moiCKM3: false,
+      ggfCKM3: false,
     });
   });
 
@@ -1247,7 +1259,7 @@ export const AuditProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
   const iniciarProcessamento = useCallback(async () => {
     try {
-      const res = await iniciarProcessamentoWorker(filesNF, fileCKM3);
+      const res = await iniciarProcessamentoWorker(filesNF, filesCKM3);
       
       // Apply intelligence and tax validation to results
       const enrichedDivergencias = res.divergencias.map((d: Divergencia) => 
@@ -1279,11 +1291,11 @@ export const AuditProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     } catch (error) {
       throw error;
     }
-  }, [filesNF, fileCKM3, iniciarProcessamentoWorker, taxMatrix, decisionHistory, justificationBase]);
+  }, [filesNF, filesCKM3, iniciarProcessamentoWorker, taxMatrix, decisionHistory, justificationBase]);
 
   const handleReset = useCallback(async () => {
     setFilesNF([]);
-    setFileCKM3(null);
+    setFilesCKM3([]);
     setResultado(null);
     setStatus('');
     setWarnings([]);
@@ -1315,7 +1327,7 @@ export const AuditProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const contextValue = React.useMemo(() => ({
     darkMode, setDarkMode,
     filesNF, setFilesNF,
-    fileCKM3, setFileCKM3,
+    filesCKM3, setFilesCKM3,
     resultado, setResultado,
     status, setStatus,
     warnings, setWarnings,
@@ -1382,7 +1394,7 @@ export const AuditProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     recipes: recipes || [],
     setRecipes
   }), [
-    darkMode, filesNF, fileCKM3, resultado, status, warnings, progressPercent, 
+    darkMode, filesNF, filesCKM3, resultado, status, warnings, progressPercent, 
     toasts, addToast, isProcessing, historico, clearHistorico, mapColunas, 
     customPresets, saveCustomPreset, deleteCustomPreset, tolerancia, cfops, 
     dataInicio, dataFim, colunaData, filterCfopDefault, filterSupplierDefault, 

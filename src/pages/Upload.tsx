@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import * as XLSX from 'xlsx';
 import { useNavigate } from 'react-router-dom';
 import { 
   FileSpreadsheet, 
@@ -10,6 +11,7 @@ import {
   Settings
 } from 'lucide-react';
 import { useAudit } from '../context/AuditContext';
+import { ordenarArquivosPorData } from '../utils/dateUtils';
 import FileUploadZone from '../components/Upload/FileUploadZone';
 import ColumnMapping from '../components/Upload/ColumnMapping';
 import Logo from '../components/Logo';
@@ -20,7 +22,7 @@ const UploadPage: React.FC = () => {
   const {
     darkMode,
     filesNF, setFilesNF,
-    fileCKM3, setFileCKM3,
+    filesCKM3, setFilesCKM3,
     status,
     warnings,
     progressPercent,
@@ -38,14 +40,61 @@ const UploadPage: React.FC = () => {
   const [isMappingOpen, setIsMappingOpen] = useState(false);
   const [isDraggingNF, setIsDraggingNF] = useState(false);
   const [isDraggingCKM3, setIsDraggingCKM3] = useState(false);
+  const [parsedCKM3Header, setParsedCKM3Header] = useState<any[] | null>(null);
 
   const handleFileNF = React.useCallback((files: FileList | null) => {
-    if (files) setFilesNF(Array.from(files));
+    if (files) {
+      setFilesNF(prev => {
+        const newFiles = Array.from(files);
+        const existingNames = new Set(prev.map(f => f.name));
+        const filteredNewFiles = newFiles.filter(f => !existingNames.has(f.name));
+        return [...prev, ...filteredNewFiles];
+      });
+    }
+  }, [setFilesNF]);
+
+  const handleRemoveFileNF = React.useCallback((fileName: string) => {
+    setFilesNF(prev => prev.filter(f => f.name !== fileName));
   }, [setFilesNF]);
 
   const handleFileCKM3 = React.useCallback((files: FileList | null) => {
-    if (files && files[0]) setFileCKM3(files[0]);
-  }, [setFileCKM3]);
+    if (files) {
+      setFilesCKM3(prev => {
+        const newFiles = Array.from(files);
+        const existingNames = new Set(prev.map(f => f.name));
+        const filteredNewFiles = newFiles.filter(f => !existingNames.has(f.name));
+        
+        const merged = [...prev, ...filteredNewFiles];
+        
+        // Diagnostic preview: parse the first of the newly filtered files
+        if (filteredNewFiles.length > 0) {
+          const reader = new FileReader();
+          reader.onload = (e) => {
+            const data = new Uint8Array(e.target?.result as ArrayBuffer);
+            const workbook = XLSX.read(data, { type: 'array' });
+            const sheetName = workbook.SheetNames[0];
+            const worksheet = workbook.Sheets[sheetName];
+            const jsonData = XLSX.utils.sheet_to_json<any[]>(worksheet, { header: 1 });
+            if (jsonData.length > 0) {
+              setParsedCKM3Header(jsonData[0]);
+            }
+          };
+          reader.readAsArrayBuffer(filteredNewFiles[0]);
+        }
+        
+        return ordenarArquivosPorData(merged);
+      });
+    }
+  }, [setFilesCKM3]);
+
+  const handleRemoveFileCKM3 = React.useCallback((fileName: string) => {
+    setFilesCKM3(prev => {
+        const next = prev.filter(f => f.name !== fileName);
+        if (next.length === 0) setParsedCKM3Header(null);
+        return next;
+    });
+  }, [setFilesCKM3]);
+
 
   const handleProcess = React.useCallback(async () => {
     try {
@@ -91,6 +140,7 @@ const UploadPage: React.FC = () => {
               onDragLeave={() => setIsDraggingNF(false)}
               onDrop={(e) => { e.preventDefault(); setIsDraggingNF(false); handleFileNF(e.dataTransfer.files); }}
               onFileSelect={handleFileNF}
+              onRemoveFile={handleRemoveFileNF}
               multiple
               darkMode={darkMode}
               id="fileNF"
@@ -98,15 +148,29 @@ const UploadPage: React.FC = () => {
 
             <FileUploadZone 
               label="Relatório CKM3"
-              files={fileCKM3}
+              files={filesCKM3}
+              multiple
               isDragging={isDraggingCKM3}
               onDragOver={(e) => { e.preventDefault(); setIsDraggingCKM3(true); }}
               onDragLeave={() => setIsDraggingCKM3(false)}
               onDrop={(e) => { e.preventDefault(); setIsDraggingCKM3(false); handleFileCKM3(e.dataTransfer.files); }}
               onFileSelect={handleFileCKM3}
+              onRemoveFile={handleRemoveFileCKM3}
               darkMode={darkMode}
               id="fileCKM3"
             />
+            {parsedCKM3Header && (
+              <div className={`mt-4 p-4 rounded-xl border ${darkMode ? 'bg-slate-800 border-slate-700' : 'bg-green-50 border-green-100'}`}>
+                <h4 className={`text-sm font-bold mb-2 ${darkMode ? 'text-[#8DC63F]' : 'text-green-800'}`}>Visualização de Cabeçalhos (CKM3)</h4>
+                <div className="flex flex-wrap gap-2 text-xs">
+                  {parsedCKM3Header.map((h, i) => (
+                    <span key={i} className={`px-2 py-1 rounded ${darkMode ? 'bg-slate-700 text-slate-300' : 'bg-white text-green-700 border border-green-200'}`}>
+                      {String(h)}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
         </section>
 

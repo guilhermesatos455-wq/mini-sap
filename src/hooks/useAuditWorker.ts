@@ -2,6 +2,7 @@ import { useState, useRef, useCallback } from 'react';
 import Cookies from 'js-cookie';
 import { applyAuditRecipes, suggestRootCause } from '../utils/auditRuleEngine';
 import { safeLocalStorageGet, getLargeData } from '../utils/storageUtils';
+import { extrairMesAnoDoArquivo } from '../utils/dateUtils';
 
 interface WorkerOptions {
   tolerancia: number;
@@ -35,10 +36,11 @@ export const useAuditWorker = (options: WorkerOptions) => {
   }, []);
 
   const executarWorker = useCallback((
-    fileCkm3Data: ArrayBuffer, 
-    fileCkm3Name: string,
+    filesCkm3Data: ArrayBuffer[], 
+    filesCkm3Names: string[],
     filesNfData: ArrayBuffer[], 
     filesNames: string[],
+    mesReferencia: any,
     onDone: (res: any) => void,
     onError: (err: Error) => void
   ) => {
@@ -70,7 +72,7 @@ export const useAuditWorker = (options: WorkerOptions) => {
       } else if (type === 'progress') {
         setProgressPercent(percent);
         if (fileName === 'CKM3') {
-          setStatus(`⏳ Indexando CKM3: ${percent}% (${current} de ${total} materiais)`);
+          setStatus(`⏳ Indexando CKM3 (${fileName}): ${percent}% (${current} de ${total} materiais)`);
         } else {
           setStatus(`⚙️ Processando NFs (${fileName}): ${percent}% (${current} de ${total} linhas totais)`);
         }
@@ -148,15 +150,16 @@ export const useAuditWorker = (options: WorkerOptions) => {
     workerRef.current.postMessage({
       filesNfData,
       filesNames,
-      fileCkm3Data,
-      fileCkm3Name,
+      filesCkm3Data,
+      filesCkm3Names,
+      mesReferencia,
       ...options
-    }, [fileCkm3Data, ...filesNfData]);
+    }, [...filesCkm3Data, ...filesNfData]);
   }, [options]);
 
-  const iniciarProcessamento = useCallback(async (filesNF: File[], fileCKM3: File | null) => {
-    if (filesNF.length === 0 || !fileCKM3) {
-      setWarnings(['Por favor, anexe pelo menos um arquivo de NF e o arquivo CKM3 primeiro!']);
+  const iniciarProcessamento = useCallback(async (filesNF: File[], filesCKM3: File[]) => {
+    if (filesNF.length === 0 || filesCKM3.length === 0) {
+      setWarnings(['Por favor, anexe pelo menos um arquivo de NF e um arquivo CKM3 primeiro!']);
       return Promise.reject(new Error('Arquivos ausentes'));
     }
 
@@ -166,7 +169,9 @@ export const useAuditWorker = (options: WorkerOptions) => {
     setStatus('⏳ Validando arquivos e mapeamentos...');
 
     try {
-      const fileCkm3Data = await lerExcelBuffer(fileCKM3);
+      const filesCkm3Data = await Promise.all(filesCKM3.map(file => lerExcelBuffer(file)));
+      const filesCkm3Names = filesCKM3.map(file => file.name);
+      
       const filesNfData = [];
       const filesNames = [];
       for (const file of filesNF) {
@@ -174,8 +179,11 @@ export const useAuditWorker = (options: WorkerOptions) => {
         filesNames.push(file.name);
       }
 
+      // Usa o primeiro arquivo para o mês de referência (que é o mais antigo após sorteio)
+      const mesReferencia = extrairMesAnoDoArquivo(filesCKM3[0].name);
+
       return new Promise<any>((resolve, reject) => {
-        executarWorker(fileCkm3Data, fileCKM3.name, filesNfData, filesNames, resolve, reject);
+        executarWorker(filesCkm3Data, filesCkm3Names, filesNfData, filesNames, mesReferencia, resolve, reject);
       });
     } catch (error: any) {
       const errorMsg = `❌ Erro ao ler arquivos: ${error.message || 'Falha desconhecida'}`;

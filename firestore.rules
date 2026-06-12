@@ -71,6 +71,10 @@ service cloud.firestore {
       allow create: if isNatulab() && isValidUser(request.resource.data) && isOwner(uid);
       allow update: if isNatulab() && isValidUser(request.resource.data) && (isOwner(uid) || isAdmin());
       allow delete: if isAdmin();
+
+      match /chat/{docId} {
+        allow read, write: if isAuthenticated();
+      }
     }
 
     match /ai_logs/{logId} {

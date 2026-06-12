@@ -45,11 +45,64 @@ const parseExcelDate = (val: any): Date | null => {
   return null;
 };
 
+const parseNumber = (val: any): number => {
+  if (typeof val === 'number') return val;
+  if (typeof val === 'string') {
+    const s = val.trim();
+    if (s === '') return 0;
+    let clean = '';
+    for (let i = 0; i < s.length; i++) {
+      const char = s[i];
+      if ((char >= '0' && char <= '9') || char === ',' || char === '.' || char === '-') {
+        clean += char;
+      }
+    }
+    if (clean.includes(',') && clean.includes('.')) {
+      clean = clean.replace(/\./g, '').replace(',', '.');
+    } else if (clean.includes(',')) {
+      clean = clean.replace(',', '.');
+    }
+    const parsed = parseFloat(clean);
+    return isNaN(parsed) ? 0 : parsed;
+  }
+  return 0;
+};
+
+const padronizarMaterial = (mat: any): string => {
+  if (mat == null) return '';
+  const s = String(mat).trim();
+  if (s === '') return '';
+  let start = 0;
+  while (start < s.length - 1 && s[start] === '0') {
+    start++;
+  }
+  return s.substring(start);
+};
+
+const fuzzyDetect = (headers: any[], synonyms: string[], expectedCol: string): number => {
+  if (expectedCol && expectedCol.length >= 1) {
+    try {
+      const idx = XLSX.utils.decode_col(expectedCol.toUpperCase());
+      if (idx >= 0 && idx < headers.length) return idx;
+    } catch (e) {}
+  }
+  for (let i = 0; i < headers.length; i++) {
+    const h = String(headers[i] || '').trim().toUpperCase();
+    if (!h) continue;
+    if (synonyms.some(syn => h.includes(syn.toUpperCase()) || syn.toUpperCase().includes(h))) {
+      return i;
+    }
+  }
+  return -1;
+};
+
+const colToIdx = (col: string) => col ? XLSX.utils.decode_col(col.toUpperCase()) : -1;
+
 self.onmessage = (e) => {
     const {
     filesNfData,
-    fileCkm3Data,
-    fileCkm3Name,
+    filesCkm3Data,
+    filesCkm3Names,
     tolerancia,
     cfops,
     dataInicio,
@@ -57,182 +110,107 @@ self.onmessage = (e) => {
     colunaData,
     mapColunas,
     filesNames,
+    mesReferencia,
     recipes // Receitas personalizadas
   } = e.data;
 
   try {
-    self.postMessage({ type: 'status', message: '⏳ Lendo arquivo CKM3...' });
-    
-    // Optimized read options for speed and memory
     const readOptions: XLSX.ParsingOptions = { 
       type: 'array', 
       dense: true,
       cellFormula: false,
       cellHTML: false,
       cellText: false,
-      cellDates: false // Keep as numbers for parseExcelDate to handle
+      cellDates: false 
     };
-
-    let wbCKM3;
-    try {
-      wbCKM3 = XLSX.read(new Uint8Array(fileCkm3Data), { ...readOptions });
-    } catch (err: any) {
-      throw new Error(`Falha ao ler o arquivo CKM3 "${fileCkm3Name || 'CKM3'}". O arquivo pode estar corrompido ou em um formato inválido (XLSX/XLS esperado). Detalhe: ${err.message}`);
-    }
-    
-    const dataCKM3 = XLSX.utils.sheet_to_json<any[]>(wbCKM3.Sheets[wbCKM3.SheetNames[0]], { header: 1 });
-    // Clear workbook reference to save memory
-    wbCKM3 = null;
-
-    const limiteTol = (tolerancia || 0) / 100;
-    const cfopsSet = new Set(cfops.toUpperCase().split(',').map((s: string) => s.trim()).filter(Boolean));
-    
-    // Decodifica colunas
-    const colDataIdx = colunaData ? XLSX.utils.decode_col(colunaData.toUpperCase()) : -1;
-    const dtInicio = dataInicio ? new Date(dataInicio + 'T00:00:00') : null;
-    const dtFim = dataFim ? new Date(dataFim + 'T23:59:59') : null;
-
-    const parseNumber = (val: any): number => {
-      if (typeof val === 'number') return val;
-      if (typeof val === 'string') {
-        const s = val.trim();
-        if (s === '') return 0;
-        
-        // Optimized parsing: remove non-numeric except , . and -
-        // Most common case: "1.234,56" or "1234.56"
-        let clean = '';
-        for (let i = 0; i < s.length; i++) {
-          const char = s[i];
-          if ((char >= '0' && char <= '9') || char === ',' || char === '.' || char === '-') {
-            clean += char;
-          }
-        }
-
-        if (clean.includes(',') && clean.includes('.')) {
-          clean = clean.replace(/\./g, '').replace(',', '.');
-        } else if (clean.includes(',')) {
-          clean = clean.replace(',', '.');
-        }
-        
-        const parsed = parseFloat(clean);
-        return isNaN(parsed) ? 0 : parsed;
-      }
-      return 0;
-    };
-
-    const colToIdx = (col: string) => col ? XLSX.utils.decode_col(col.toUpperCase()) : -1;
-
-    const padronizarMaterial = (mat: any): string => {
-      if (mat == null) return '';
-      const s = String(mat).trim();
-      if (s === '') return '';
-      
-      // Fast zero-strip
-      let start = 0;
-      while (start < s.length - 1 && s[start] === '0') {
-        start++;
-      }
-      return s.substring(start);
-    };
-
-    // Helper para Mapeamento Automático (Fuzzy Mapping)
-    const fuzzyDetect = (headers: any[], synonyms: string[], expectedCol: string): number => {
-      // 1. Tentar o mapeamento manual primeiro
-      if (expectedCol && expectedCol.length >= 1) {
-        try {
-          const idx = XLSX.utils.decode_col(expectedCol.toUpperCase());
-          if (idx >= 0 && idx < headers.length) return idx;
-        } catch (e) {}
-      }
-
-      // 2. Tentar busca exata ou por sinônimos nos cabeçalhos
-      for (let i = 0; i < headers.length; i++) {
-        const h = String(headers[i] || '').trim().toUpperCase();
-        if (!h) continue;
-
-        if (synonyms.some(syn => h.includes(syn.toUpperCase()) || syn.toUpperCase().includes(h))) {
-          return i;
-        }
-      }
-      return -1;
-    };
-
-    // 2. Indexação do CKM3
-    const startRowCkm3 = 1;
-    const headersCKM3 = dataCKM3[0] || [];
-    
-    // --- Nova Validação Robust de Cabeçalhos CKM3 ---
-    const checkHeader = (synonyms: string[], colConfig: string, requiredName: string) => {
-        const idx = fuzzyDetect(headersCKM3, synonyms, colConfig);
-        if (idx === -1) throw new Error(`Arquivo CKM3 inválido ou mal configurado: Não foi possível identificar a coluna obrigatória "${requiredName}". Verifique o cabeçalho do arquivo.`);
-        return idx;
-    };
-    
-    // Validar colunas críticas do CKM3
-    const idxCkm3Mat = checkHeader(['Material', 'Cod. Material', 'Produto', 'Cod. Mat'], mapColunas.ckm3Mat || 'C', 'Material');
-    const idxCkm3Qtd = checkHeader(['Quantidade', 'Estoque', 'Qtd', 'Saldo'], mapColunas.ckm3Qtd || 'I', 'Quantidade');
-    const idxCkm3Centro = checkHeader(['Centro', 'Planta', 'Plant', 'Local'], mapColunas.ckm3Centro || 'C', 'Centro');
-    const idxCkm3Desc = checkHeader(['Descrição', 'Nome', 'Texto', 'Description', 'Material Desc'], mapColunas.ckm3Desc || 'D', 'Descrição');
-    // Custo é fixo 'L' no código, vamos deixar assim por enquanto, ou validar se existe na linha header se necessário
-    const idxCkm3Custo = XLSX.utils.decode_col('L');
-    
-    const idxCkm3Categoria = fuzzyDetect(headersCKM3, ['Categoria', 'Cat.', 'Category'], mapColunas.ckm3Categoria || 'G');
-    const categoriaFiltroRaw = mapColunas.ckm3CategoriaFiltro || [];
-    const categoriaFiltro = Array.isArray(categoriaFiltroRaw) 
-      ? categoriaFiltroRaw.map((s: string) => s.trim().toUpperCase()).filter(Boolean)
-      : (typeof categoriaFiltroRaw === 'string' && categoriaFiltroRaw.trim() !== '' ? [categoriaFiltroRaw.trim().toUpperCase()] : []);
-
-    const idxCkm3Processo = XLSX.utils.decode_col(mapColunas.ckm3Processo || 'H');
-    const processoFiltroRaw = mapColunas.ckm3ProcessoFiltro || [];
-    const processoFiltro = Array.isArray(processoFiltroRaw)
-      ? processoFiltroRaw.map((s: string) => s.trim().toUpperCase()).filter(Boolean)
-      : (typeof processoFiltroRaw === 'string' && processoFiltroRaw.trim() !== '' ? [processoFiltroRaw.trim().toUpperCase()] : []);
-
     const dictCKM3 = new Map<string, { custo: number; qtdEstoque: number; centro: string; descricao: string; linha: number }>();
-    
-    const totalCkm3 = dataCKM3.length - startRowCkm3;
-    for (let r = startRowCkm3; r < dataCKM3.length; r++) {
-      const linha = dataCKM3[r];
-      if (!linha || linha.length <= idxCkm3Mat) continue;
-      
-      const codMat = linha[idxCkm3Mat];
-      const custo = parseNumber(linha[idxCkm3Custo]);
-      // Use idxCkm3Categoria se for >= 0
-      const categoria = idxCkm3Categoria >= 0 ? String(linha[idxCkm3Categoria] || '').trim().toUpperCase() : '';
-      const processo = String(linha[idxCkm3Processo] || '').trim().toUpperCase();
+    let totalMateriaisCkm3 = 0;
+    let totalRowsCkm3 = 0;
 
-      // Lógica de Filtro por Categoria (Coluna G)
-      if (categoriaFiltro.length > 0) {
-        const match = categoriaFiltro.some(f => categoria.includes(f));
-        if (!match) continue;
-      }
+    for (let f = 0; f < filesCkm3Data.length; f++) {
+      const fileName = filesCkm3Names[f];
+      self.postMessage({ type: 'status', message: `⏳ Lendo arquivo CKM3: ${fileName}...` });
 
-      // Lógica de Filtro por Categoria de Processo (Coluna H)
-      if (processoFiltro.length > 0) {
-        const match = processoFiltro.some(f => processo.includes(f));
-        if (!match) continue;
+      let wbCKM3;
+      try {
+        wbCKM3 = XLSX.read(new Uint8Array(filesCkm3Data[f]), { ...readOptions });
+      } catch (err: any) {
+        throw new Error(`Falha ao ler o arquivo CKM3 "${fileName}". O arquivo pode estar corrompido ou em um formato inválido. Detalhe: ${err.message}`);
       }
       
-      if (codMat != null && custo !== 0) {
-        const qtdEstoque = parseNumber(linha[idxCkm3Qtd]);
-        dictCKM3.set(padronizarMaterial(codMat), { 
-          custo, 
-          qtdEstoque,
-          centro: String(linha[idxCkm3Centro] || '').trim(), 
-          descricao: String(linha[idxCkm3Desc] || '').trim(),
-          linha: r + 1
-        });
-      }
+      const dataCKM3 = XLSX.utils.sheet_to_json<any[]>(wbCKM3.Sheets[wbCKM3.SheetNames[0]], { header: 1 });
+      wbCKM3 = null;
+      totalRowsCkm3 += dataCKM3.length;
 
-      if (r % 15000 === 0) {
-        self.postMessage({ 
-          type: 'progress', 
-          percent: Math.round(((r - startRowCkm3) / totalCkm3) * 100), 
-          current: r - startRowCkm3, 
-          total: totalCkm3, 
-          fileName: 'CKM3' 
-        });
+      const headersCKM3 = dataCKM3[0] || [];
+      const startRowCkm3 = 1;
+
+      // Scan rows 0-5 to find actual headers if not found immediately
+      let actualHeaders = headersCKM3;
+      let headerRowIndex = 0;
+      
+      const findHeaderRow = () => {
+          for (let r = 0; r < Math.min(6, dataCKM3.length); r++) {
+              const row = dataCKM3[r];
+              if (!row) continue;
+              // Check if this row contains 'Material' or similar
+              if (row.some((cell: any) => String(cell).toLowerCase().includes('material'))) {
+                  actualHeaders = row;
+                  headerRowIndex = r;
+                  return;
+              }
+          }
+      };
+      findHeaderRow();
+
+      // Funções auxiliares mantidas aqui (redundante, mas seguro para o escopo)
+      const checkHeader = (synonyms: string[], colConfig: string, requiredName: string) => {
+          const idx = fuzzyDetect(actualHeaders, synonyms, colConfig);
+          if (idx === -1 && f === 0) {
+            console.error('All headers detected:', actualHeaders);
+            throw new Error(`Arquivo CKM3 "${fileName}" inválido: Não encontrada coluna obrigatória "${requiredName}". Headers detectados: ${JSON.stringify(actualHeaders)}`);
+          }
+          return idx;
+      };
+
+      const idxCkm3Mat = checkHeader(['Material', 'Cod. Material', 'Produto', 'Cod. Mat'], mapColunas.ckm3Mat || 'C', 'Material');
+      const idxCkm3Qtd = checkHeader(['Quantidade', 'Estoque', 'Qtd', 'Saldo'], mapColunas.ckm3Qtd || 'I', 'Quantidade');
+      const idxCkm3Centro = checkHeader(['Centro', 'Planta', 'Plant', 'Local'], mapColunas.ckm3Centro || 'C', 'Centro');
+      const idxCkm3Desc = checkHeader(['Descrição', 'Nome', 'Texto', 'Description', 'Material Desc'], mapColunas.ckm3Desc || 'D', 'Descrição');
+      const idxCkm3Custo = XLSX.utils.decode_col('L');
+      
+      const idxCkm3Categoria = fuzzyDetect(actualHeaders, ['Categoria', 'Cat.', 'Category'], mapColunas.ckm3Categoria || 'G');
+      const idxCkm3Processo = XLSX.utils.decode_col(mapColunas.ckm3Processo || 'H');
+      
+      const categoriaFiltroRaw = mapColunas.ckm3CategoriaFiltro || [];
+      const categoriaFiltro = Array.isArray(categoriaFiltroRaw) ? categoriaFiltroRaw.map((s: string) => s.trim().toUpperCase()).filter(Boolean) : [];
+      const processoFiltroRaw = mapColunas.ckm3ProcessoFiltro || [];
+      const processoFiltro = Array.isArray(processoFiltroRaw) ? processoFiltroRaw.map((s: string) => s.trim().toUpperCase()).filter(Boolean) : [];
+
+      for (let r = headerRowIndex + 1; r < dataCKM3.length; r++) {
+        const linha = dataCKM3[r];
+        if (!linha || linha.length <= idxCkm3Mat) continue;
+        
+        const codMat = linha[idxCkm3Mat];
+        const categoria = idxCkm3Categoria >= 0 ? String(linha[idxCkm3Categoria] || '').trim().toUpperCase() : '';
+        const processo = String(linha[idxCkm3Processo] || '').trim().toUpperCase();
+
+        if (categoriaFiltro.length > 0 && !categoriaFiltro.some(f => categoria.includes(f))) continue;
+        if (processoFiltro.length > 0 && !processoFiltro.some(f => processo.includes(f))) continue;
+        
+        const custo = parseNumber(linha[idxCkm3Custo]);
+        if (codMat != null && custo !== 0) {
+          const qtdEstoque = parseNumber(linha[idxCkm3Qtd]);
+          dictCKM3.set(padronizarMaterial(codMat), { 
+            custo, 
+            qtdEstoque,
+            centro: String(linha[idxCkm3Centro] || '').trim(), 
+            descricao: String(linha[idxCkm3Desc] || '').trim(),
+            linha: r + 1
+          });
+        }
       }
+      totalMateriaisCkm3 += (dataCKM3.length - startRowCkm3);
     }
 
     let qtdDiv = 0;
@@ -642,9 +620,10 @@ self.onmessage = (e) => {
           empresa: Array.from(empresaSetUnique).sort()
         },
         linhasNfProcessadas: totalLinhasProcessadas,
-        linhasCkm3Processadas: dataCKM3.length,
+        linhasCkm3Processadas: totalRowsCkm3,
         materiaisNoCkm3: dictCKM3.size,
-        dataProcessamento: new Date().toISOString()
+        dataProcessamento: new Date().toISOString(),
+        mesReferencia: mesReferencia ? `${mesReferencia.mes}/20${mesReferencia.ano}` : 'Desconhecido'
       }
     });
 

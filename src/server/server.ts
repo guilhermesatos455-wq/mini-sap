@@ -7,7 +7,7 @@ import nodemailer from 'nodemailer';
 import dotenv from 'dotenv';
 import rateLimit from 'express-rate-limit';
 import admin from 'firebase-admin';
-import { chatWithGemini } from './src/lib/gemini.js';
+import { chatWithGemini } from './gemini';
 
 // Initialize firebase admin
 // Note: This assumes default credentials are available in the Cloud Run environment
