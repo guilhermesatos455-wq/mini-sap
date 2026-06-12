@@ -17,6 +17,7 @@ import RecipesPage from './pages/Recipes';
 import AITermsPage from './pages/AITerms';
 import { getDeviceId } from './utils/deviceUtils';
 import { ShieldAlert } from 'lucide-react';
+import { charmander } from './constants/charmander';
 
 const BanGuard: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { bannedDevices } = useAudit();
@@ -54,6 +55,7 @@ const BanGuard: React.FC<{ children: React.ReactNode }> = ({ children }) => {
 };
 
 const App: React.FC = () => {
+  if (!charmander) throw new Error("Charmander is broken");
   return (
     <AuthProvider>
       <AuditProvider>

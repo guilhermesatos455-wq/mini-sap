@@ -109,6 +109,7 @@ self.onmessage = (e) => {
     dataFim,
     colunaData,
     mapColunas,
+    ckm3ManualMapping,
     filesNames,
     mesReferencia,
     recipes // Receitas personalizadas
@@ -164,8 +165,12 @@ self.onmessage = (e) => {
       findHeaderRow();
 
       // Funções auxiliares mantidas aqui (redundante, mas seguro para o escopo)
-      const checkHeader = (synonyms: string[], colConfig: string, requiredName: string) => {
-          const idx = fuzzyDetect(actualHeaders, synonyms, colConfig);
+      const checkHeader = (key: string, synonyms: string[], colConfig: string, requiredName: string) => {
+          const allSynonyms = [...synonyms];
+          if (ckm3ManualMapping && ckm3ManualMapping[key]) {
+              allSynonyms.push(ckm3ManualMapping[key]);
+          }
+          const idx = fuzzyDetect(actualHeaders, allSynonyms, colConfig);
           if (idx === -1 && f === 0) {
             console.error('All headers detected:', actualHeaders);
             throw new Error(`Arquivo CKM3 "${fileName}" inválido: Não encontrada coluna obrigatória "${requiredName}". Headers detectados: ${JSON.stringify(actualHeaders)}`);
@@ -173,10 +178,10 @@ self.onmessage = (e) => {
           return idx;
       };
 
-      const idxCkm3Mat = checkHeader(['Material', 'Cod. Material', 'Produto', 'Cod. Mat'], mapColunas.ckm3Mat || 'C', 'Material');
-      const idxCkm3Qtd = checkHeader(['Quantidade', 'Estoque', 'Qtd', 'Saldo'], mapColunas.ckm3Qtd || 'I', 'Quantidade');
-      const idxCkm3Centro = checkHeader(['Centro', 'Planta', 'Plant', 'Local'], mapColunas.ckm3Centro || 'C', 'Centro');
-      const idxCkm3Desc = checkHeader(['Descrição', 'Nome', 'Texto', 'Description', 'Material Desc'], mapColunas.ckm3Desc || 'D', 'Descrição');
+      const idxCkm3Mat = checkHeader('ckm3Mat', ['Material', 'Cod. Material', 'Produto', 'Cod. Mat'], mapColunas.ckm3Mat || 'C', 'Material');
+      const idxCkm3Qtd = checkHeader('ckm3Qtd', ['Quantidade', 'Estoque', 'Qtd', 'Saldo'], mapColunas.ckm3Qtd || 'I', 'Quantidade');
+      const idxCkm3Centro = checkHeader('ckm3Centro', ['Centro', 'Planta', 'Plant', 'Local'], mapColunas.ckm3Centro || 'C', 'Centro');
+      const idxCkm3Desc = checkHeader('ckm3Desc', ['Descrição', 'Nome', 'Texto', 'Description', 'Material Desc'], mapColunas.ckm3Desc || 'D', 'Descrição');
       const idxCkm3Custo = XLSX.utils.decode_col('L');
       
       const idxCkm3Categoria = fuzzyDetect(actualHeaders, ['Categoria', 'Cat.', 'Category'], mapColunas.ckm3Categoria || 'G');

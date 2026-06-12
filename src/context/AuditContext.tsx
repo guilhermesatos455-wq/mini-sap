@@ -30,6 +30,8 @@ import { safeLocalStorageSet, safeLocalStorageGet, setLargeData, getLargeData } 
 import { Divergencia, SAPMovementType, MaterialMovement, AuditRecipe, StockPosition, MovementColumnMapping, ShowColunas } from '../types/audit';
 
 interface AuditContextType {
+  ckm3ManualMapping: Record<string, string>;
+  setCkm3ManualMapping: (m: Record<string, string>) => void;
   darkMode: boolean;
   setDarkMode: (val: boolean) => void;
   filesNF: File[];
@@ -240,6 +242,14 @@ export const AuditProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const [filesNF, setFilesNF] = useState<File[]>([]);
   const [filesCKM3, setFilesCKM3] = useState<File[]>([]);
   const [resultado, setResultado] = useState<any | null>(null);
+  const [ckm3ManualMapping, setCkm3ManualMapping] = useState<Record<string, string>>(() => {
+    return safeLocalStorageGet('miniSapCkm3ManualMapping', {});
+  });
+
+  useEffect(() => {
+    safeLocalStorageSet('miniSapCkm3ManualMapping', ckm3ManualMapping);
+  }, [ckm3ManualMapping]);
+
   const [toasts, setToasts] = useState<{ id: number, message: string, type: 'success' | 'error' | 'info' }[]>([]);
 
   const addToast = useCallback((message: string, type: 'success' | 'error' | 'info' = 'info') => {
@@ -617,10 +627,11 @@ export const AuditProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     dataFim,
     colunaData,
     mapColunas,
+    ckm3ManualMapping,
     recipes, // Enviar receitas para o worker
     decisionHistory,
     justificationBase
-  }), [tolerancia, cfops, dataInicio, dataFim, colunaData, mapColunas, recipes, decisionHistory, justificationBase]);
+  }), [tolerancia, cfops, dataInicio, dataFim, colunaData, mapColunas, ckm3ManualMapping, recipes, decisionHistory, justificationBase]);
 
   const {
     isProcessing,
@@ -1325,6 +1336,7 @@ export const AuditProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   }, []);
 
   const contextValue = React.useMemo(() => ({
+    ckm3ManualMapping, setCkm3ManualMapping,
     darkMode, setDarkMode,
     filesNF, setFilesNF,
     filesCKM3, setFilesCKM3,
@@ -1394,6 +1406,7 @@ export const AuditProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     recipes: recipes || [],
     setRecipes
   }), [
+    ckm3ManualMapping,
     darkMode, filesNF, filesCKM3, resultado, status, warnings, progressPercent, 
     toasts, addToast, isProcessing, historico, clearHistorico, mapColunas, 
     customPresets, saveCustomPreset, deleteCustomPreset, tolerancia, cfops, 

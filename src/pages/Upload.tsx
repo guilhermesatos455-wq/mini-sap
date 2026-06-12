@@ -32,6 +32,7 @@ const UploadPage: React.FC = () => {
     dataInicio, setDataInicio,
     dataFim, setDataFim,
     mapColunas, setMapColunas,
+    ckm3ManualMapping, setCkm3ManualMapping,
     iniciarProcessamento,
     filterHideZeroes, setFilterHideZeroes,
     addToast
@@ -160,6 +161,7 @@ const UploadPage: React.FC = () => {
               id="fileCKM3"
             />
             {parsedCKM3Header && (
+              <>
               <div className={`mt-4 p-4 rounded-xl border ${darkMode ? 'bg-slate-800 border-slate-700' : 'bg-green-50 border-green-100'}`}>
                 <h4 className={`text-sm font-bold mb-2 ${darkMode ? 'text-[#8DC63F]' : 'text-green-800'}`}>Visualização de Cabeçalhos (CKM3)</h4>
                 <div className="flex flex-wrap gap-2 text-xs">
@@ -170,6 +172,25 @@ const UploadPage: React.FC = () => {
                   ))}
                 </div>
               </div>
+              <div className={`mt-4 p-4 rounded-xl border ${darkMode ? 'bg-slate-800 border-slate-700' : 'bg-blue-50 border-blue-100'}`}>
+                <h4 className={`text-sm font-bold mb-2 ${darkMode ? 'text-[#8DC63F]' : 'text-blue-800'}`}>Mapeamento Manual (Sobrescrita)</h4>
+                <div className="grid grid-cols-2 gap-4">
+                  {['ckm3Mat', 'ckm3Qtd', 'ckm3Centro', 'ckm3Desc'].map(key => (
+                    <div key={key}>
+                      <label className={`text-[10px] uppercase font-bold ${darkMode ? 'text-slate-400' : 'text-blue-600'} mb-1 block`}>Coluna para {key.replace('ckm3', '')}</label>
+                      <select 
+                        value={ckm3ManualMapping[key] || ''} 
+                        onChange={(e) => setCkm3ManualMapping({...ckm3ManualMapping, [key]: e.target.value})}
+                        className={`w-full p-2 border rounded-lg text-xs ${darkMode ? 'bg-slate-700 border-slate-600 text-slate-100' : 'bg-white border-blue-200 text-slate-800'}`}
+                      >
+                         <option value="">Automático</option>
+                         {parsedCKM3Header.map(h => <option key={h} value={h}>{h}</option>)}
+                      </select>
+                    </div>
+                  ))}
+                </div>
+              </div>
+              </>
             )}
           </div>
         </section>
