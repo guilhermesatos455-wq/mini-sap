@@ -115,6 +115,12 @@ self.onmessage = (e) => {
     recipes // Receitas personalizadas
   } = e.data;
 
+  const cfopsSet = new Set(cfops);
+  const limiteTol = tolerancia || 0;
+  const colDataIdx = colunaData ? XLSX.utils.decode_col(colunaData.toUpperCase()) : -1;
+  const dtInicio = dataInicio ? new Date(dataInicio) : null;
+  const dtFim = dataFim ? new Date(dataFim) : null;
+
   try {
     const readOptions: XLSX.ParsingOptions = { 
       type: 'array', 

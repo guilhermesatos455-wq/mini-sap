@@ -3,14 +3,15 @@ import { Send, Bot, X, Loader2, Download } from 'lucide-react';
 import { ChatErrorBoundary } from './ChatErrorBoundary';
 import { useAuth } from '../context/AuthContext';
 import { useAudit } from '../context/AuditContext';
-import { Message } from '../../services/aiService';
+import { Message } from '../services/aiService';
+import { aiService } from '../services/aiService';
 
 interface NatuAssistChatProps {
   onClose: () => void;
 }
 
 export const NatuAssistChat: React.FC<NatuAssistChatProps> = ({ onClose }) => {
-  const { ai, darkMode, resultado, movements, initialStockPositions, finalStockPositions, recipes, historico, cfops, dataInicio, dataFim } = useAudit();
+  const { darkMode, resultado, movements, initialStockPositions, finalStockPositions, recipes, historico, cfops, dataInicio, dataFim } = useAudit();
   const { user, signInWithGoogle } = useAuth();
   const [messages, setMessages] = useState<Message[]>([
     { role: 'assistant', content: 'Olá! Sou o NatuAssist, seu assistente de auditoria inteligente. Como posso ajudar você hoje com os dados auditados, movimentações ou estoques?' }
@@ -66,7 +67,7 @@ export const NatuAssistChat: React.FC<NatuAssistChatProps> = ({ onClose }) => {
     setLoading(true);
 
     try {
-        const response = await ai.chat(newMessagesForAI);
+        const response = await aiService.chat(newMessagesForAI);
         setMessages(prev => [...prev, { role: 'assistant', content: response }]);
     } catch (error) {
         setMessages(prev => [...prev, { role: 'assistant', content: 'Desculpe, não consegui processar sua solicitação.' }]);

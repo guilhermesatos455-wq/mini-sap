@@ -156,6 +156,16 @@ const AuditDetailsPage: React.FC = () => {
             valorLiqComFrete: true,
             valorTotalSemFrete: true,
             valorTotalComFrete: true,
+            tipoMaterialCKM3: false,
+            precoMedioCKM3: false,
+            matPrimaCKM3: false,
+            embalagemCKM3: false,
+            terceirosCKM3: false,
+            reparoCKM3: false,
+            modCKM3: false,
+            maquinaCKM3: false,
+            moiCKM3: false,
+            ggfCKM3: false,
           });
         }
 
@@ -2136,6 +2146,16 @@ const AuditDetailsPage: React.FC = () => {
                       valorLiqComFrete: false,
                       valorTotalSemFrete: false,
                       valorTotalComFrete: false,
+                      tipoMaterialCKM3: false,
+                      precoMedioCKM3: false,
+                      matPrimaCKM3: false,
+                      embalagemCKM3: false,
+                      terceirosCKM3: false,
+                      reparoCKM3: false,
+                      modCKM3: false,
+                      maquinaCKM3: false,
+                      moiCKM3: false,
+                      ggfCKM3: false,
                     });
                     addToast('Filtros limpos!', 'info');
                   }}

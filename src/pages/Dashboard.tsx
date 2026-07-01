@@ -39,6 +39,7 @@ const SupplierChart = lazy(() => import('../components/dashboard/SupplierChart')
 const SupplierTable = lazy(() => import('../components/dashboard/SupplierTable'));
 const TopLossesList = lazy(() => import('../components/dashboard/TopLossesList'));
 const ParetoChart = lazy(() => import('../components/dashboard/ParetoChart'));
+const VarianceChart = lazy(() => import('../components/dashboard/VarianceChart'));
 
 const ChartSkeleton = ({ darkMode }: { darkMode: boolean }) => (
   <div className={`w-full h-[350px] animate-pulse rounded-2xl ${darkMode ? 'bg-slate-800' : 'bg-gray-100'}`} />
@@ -477,6 +478,16 @@ const DashboardPage: React.FC = () => {
           <Suspense fallback={<ChartSkeleton darkMode={darkMode} />}>
             <ParetoChart 
               data={supplierSummary} 
+              darkMode={darkMode} 
+              formatoMoeda={formatoMoeda} 
+            />
+          </Suspense>
+        )}
+        
+        {showFinancialImpact && (
+          <Suspense fallback={<ChartSkeleton darkMode={darkMode} />}>
+            <VarianceChart 
+              divergencias={resultado.divergencias} 
               darkMode={darkMode} 
               formatoMoeda={formatoMoeda} 
             />

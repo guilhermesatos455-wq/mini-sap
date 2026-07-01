@@ -16,6 +16,7 @@ import FileUploadZone from '../components/Upload/FileUploadZone';
 import ColumnMapping from '../components/Upload/ColumnMapping';
 import Logo from '../components/Logo';
 import { OCRUpload } from '../components/Upload/OCRUpload';
+import { PainelConciliacao } from '../components/Upload/PainelConciliacao';
 
 const UploadPage: React.FC = () => {
   const navigate = useNavigate();
@@ -39,62 +40,57 @@ const UploadPage: React.FC = () => {
   } = useAudit();
 
   const [isMappingOpen, setIsMappingOpen] = useState(false);
+  const [ocrResultados, setOcrResultados] = useState<any[]>([]);
   const [isDraggingNF, setIsDraggingNF] = useState(false);
   const [isDraggingCKM3, setIsDraggingCKM3] = useState(false);
   const [parsedCKM3Header, setParsedCKM3Header] = useState<any[] | null>(null);
 
   const handleFileNF = React.useCallback((files: FileList | null) => {
     if (files) {
-      setFilesNF(prev => {
-        const newFiles = Array.from(files);
-        const existingNames = new Set(prev.map(f => f.name));
-        const filteredNewFiles = newFiles.filter(f => !existingNames.has(f.name));
-        return [...prev, ...filteredNewFiles];
-      });
+      const newFiles = Array.from(files);
+      const existingNames = new Set(filesNF.map(f => f.name));
+      const filteredNewFiles = newFiles.filter(f => !existingNames.has(f.name));
+      setFilesNF([...filesNF, ...filteredNewFiles]);
     }
-  }, [setFilesNF]);
+  }, [setFilesNF, filesNF]);
 
   const handleRemoveFileNF = React.useCallback((fileName: string) => {
-    setFilesNF(prev => prev.filter(f => f.name !== fileName));
-  }, [setFilesNF]);
+    setFilesNF(filesNF.filter(f => f.name !== fileName));
+  }, [setFilesNF, filesNF]);
 
   const handleFileCKM3 = React.useCallback((files: FileList | null) => {
     if (files) {
-      setFilesCKM3(prev => {
-        const newFiles = Array.from(files);
-        const existingNames = new Set(prev.map(f => f.name));
-        const filteredNewFiles = newFiles.filter(f => !existingNames.has(f.name));
-        
-        const merged = [...prev, ...filteredNewFiles];
-        
-        // Diagnostic preview: parse the first of the newly filtered files
-        if (filteredNewFiles.length > 0) {
-          const reader = new FileReader();
-          reader.onload = (e) => {
-            const data = new Uint8Array(e.target?.result as ArrayBuffer);
-            const workbook = XLSX.read(data, { type: 'array' });
-            const sheetName = workbook.SheetNames[0];
-            const worksheet = workbook.Sheets[sheetName];
-            const jsonData = XLSX.utils.sheet_to_json<any[]>(worksheet, { header: 1 });
-            if (jsonData.length > 0) {
-              setParsedCKM3Header(jsonData[0]);
-            }
-          };
-          reader.readAsArrayBuffer(filteredNewFiles[0]);
-        }
-        
-        return ordenarArquivosPorData(merged);
-      });
+      const newFiles = Array.from(files);
+      const existingNames = new Set(filesCKM3.map(f => f.name));
+      const filteredNewFiles = newFiles.filter(f => !existingNames.has(f.name));
+      
+      const merged = [...filesCKM3, ...filteredNewFiles];
+      
+      // Diagnostic preview: parse the first of the newly filtered files
+      if (filteredNewFiles.length > 0) {
+        const reader = new FileReader();
+        reader.onload = (e) => {
+          const data = new Uint8Array(e.target?.result as ArrayBuffer);
+          const workbook = XLSX.read(data, { type: 'array' });
+          const sheetName = workbook.SheetNames[0];
+          const worksheet = workbook.Sheets[sheetName];
+          const jsonData = XLSX.utils.sheet_to_json<any[]>(worksheet, { header: 1 });
+          if (jsonData.length > 0) {
+            setParsedCKM3Header(jsonData[0]);
+          }
+        };
+        reader.readAsArrayBuffer(filteredNewFiles[0]);
+      }
+      
+      setFilesCKM3(ordenarArquivosPorData(merged));
     }
-  }, [setFilesCKM3]);
+  }, [setFilesCKM3, filesCKM3]);
 
   const handleRemoveFileCKM3 = React.useCallback((fileName: string) => {
-    setFilesCKM3(prev => {
-        const next = prev.filter(f => f.name !== fileName);
-        if (next.length === 0) setParsedCKM3Header(null);
-        return next;
-    });
-  }, [setFilesCKM3]);
+    const next = filesCKM3.filter(f => f.name !== fileName);
+    if (next.length === 0) setParsedCKM3Header(null);
+    setFilesCKM3(next);
+  }, [setFilesCKM3, filesCKM3]);
 
 
   const handleProcess = React.useCallback(async () => {
@@ -184,7 +180,7 @@ const UploadPage: React.FC = () => {
                         className={`w-full p-2 border rounded-lg text-xs ${darkMode ? 'bg-slate-700 border-slate-600 text-slate-100' : 'bg-white border-blue-200 text-slate-800'}`}
                       >
                          <option value="">Automático</option>
-                         {parsedCKM3Header.map(h => <option key={h} value={h}>{h}</option>)}
+                         {parsedCKM3Header.map((h, i) => <option key={`${h}-${i}`} value={h}>{h}</option>)}
                       </select>
                     </div>
                   ))}
@@ -280,9 +276,14 @@ const UploadPage: React.FC = () => {
           darkMode={darkMode} 
           primaryColor="#8DC63F" 
           onExtractData={(data) => {
-            addToast(`Dados extraídos da NF: ${data.numeroNF}`, 'success');
-            // Here you could fill some preview state or automatically add to files
+            setOcrResultados(data);
+            addToast(`${data.length} arquivos processados!`, 'success');
           }} 
+        />
+        <PainelConciliacao 
+          darkMode={darkMode} 
+          primaryColor="#8DC63F" 
+          dados={ocrResultados} 
         />
         <div className={`p-6 rounded-[2rem] border flex flex-col justify-center ${darkMode ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-100 shadow-xl shadow-slate-200/50'}`}>
           <h4 className="text-sm font-black uppercase tracking-widest text-[#8DC63F] mb-2">Dica de Produtividade</h4>

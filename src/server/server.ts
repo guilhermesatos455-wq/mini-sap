@@ -7,7 +7,8 @@ import nodemailer from 'nodemailer';
 import dotenv from 'dotenv';
 import rateLimit from 'express-rate-limit';
 import admin from 'firebase-admin';
-import { chatWithGemini } from './gemini';
+import { chatWithGemini, ai } from './gemini';
+import multer from 'multer';
 
 // Initialize firebase admin
 // Note: This assumes default credentials are available in the Cloud Run environment
@@ -34,11 +35,21 @@ const emailLimiter = rateLimit({
   legacyHeaders: false,
 });
 
+const upload = multer({ storage: multer.memoryStorage() });
+
 async function startServer() {
   const app = express();
   const PORT = 3000;
 
-  app.use(express.json());
+  app.use(express.json({ limit: '50mb' }));
+
+  app.use((err: any, req: any, res: any, next: any) => {
+    if (err.type === 'entity.too.large') {
+      res.status(413).json({ error: 'Arquivo muito grande.' });
+    } else {
+      next(err);
+    }
+  });
 
   // API Route for AI Chat
   app.post('/api/ai/chat', async (req, res) => {
@@ -49,6 +60,37 @@ async function startServer() {
     } catch (error) {
         console.error('Gemini Error:', error);
         res.status(500).json({ error: 'Falha na comunicação com o Gemini.' });
+    }
+  });
+
+  // API Route for fiscal document analysis via OCR text
+  app.post('/api/analise-fiscal', upload.single('file'), async (req, res) => {
+    const file = req.file;
+    if (!file) {
+        res.status(400).json({ error: 'Nenhum arquivo enviado.' });
+        return;
+    }
+    
+    try {
+        const base64 = file.buffer.toString('base64');
+        const mimeType = file.mimetype;
+        
+        const response = await ai.models.generateContent({
+             model: "gemini-1.5-flash", 
+             contents: {
+               parts: [
+                 { text: "Analise a nota fiscal ou documento fiscal e extraia os campos: { 'numeroNF', 'fornecedor', 'data', 'valorTotal', 'referencia_po', 'processo_imp', 'frete' }. Se não encontrar, retorne nulo. Apenas o JSON puro." },
+                 { inlineData: { mimeType, data: base64 } }
+               ]
+             }
+        });
+
+        const jsonMatch = response.text.match(/\{.*\}/s);
+        const data = jsonMatch ? JSON.parse(jsonMatch[0]) : {};
+        res.json(data);
+    } catch (error) {
+        console.error('OCR API Error:', error);
+        res.status(500).json({ error: 'Falha na análise fiscal.' });
     }
   });
 
