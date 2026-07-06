@@ -2,6 +2,7 @@ import React, { createContext, useContext, useState, useEffect, useCallback, use
 import bcrypt from 'bcryptjs';
 import Cookies from 'js-cookie';
 import { get as getIDB, set as setIDB, del as delIDB } from 'idb-keyval';
+import { OfflineSyncManager } from '../lib/offlineManager';
 import { 
   collection, 
   doc, 
@@ -528,7 +529,6 @@ export const AuditProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     loadLogs();
   }, []);
 
-
   const [showColunas, setShowColunas] = useState<ShowColunas>(() => {
     return safeLocalStorageGet('miniSapShowColunas', {
       empresa: false,
@@ -577,6 +577,25 @@ export const AuditProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       setIDB('miniSap_lastResultado', resultado).catch(err => {
         console.error('Erro ao persistir auditoria:', err);
       });
+    }
+  }, [resultado]);
+
+  // Auto-save functionality for Tauri
+  useEffect(() => {
+    if (typeof window !== 'undefined' && (window as any).__TAURI__) {
+      const interval = setInterval(async () => {
+        if (resultado) {
+          try {
+            const content = JSON.stringify(resultado);
+            const { writeFile, BaseDirectory } = await import('@tauri-apps/plugin-fs');
+            await writeFile('audit-recovery.json', new TextEncoder().encode(content), { baseDir: BaseDirectory.AppCache });
+            console.log('Auto-save successful');
+          } catch (error) {
+            console.error('Auto-save failed:', error);
+          }
+        }
+      }, 600000); // 10 minutes
+      return () => clearInterval(interval);
     }
   }, [resultado]);
 
