@@ -9,6 +9,7 @@ import rateLimit from 'express-rate-limit';
 import admin from 'firebase-admin';
 import { chatWithGemini, ai } from './gemini';
 import multer from 'multer';
+import { ClientSecretCredential } from "@azure/identity";
 
 // Initialize firebase admin
 // Note: This assumes default credentials are available in the Cloud Run environment
@@ -76,7 +77,7 @@ async function startServer() {
         const mimeType = file.mimetype;
         
         const response = await ai.models.generateContent({
-             model: "gemini-1.5-flash", 
+             model: "gemini-1.5-pro", 
              contents: {
                parts: [
                  { text: "Analise a nota fiscal ou documento fiscal e extraia os campos: { 'numeroNF', 'fornecedor', 'data', 'valorTotal', 'referencia_po', 'processo_imp', 'frete' }. Se não encontrar, retorne nulo. Apenas o JSON puro." },
@@ -90,7 +91,10 @@ async function startServer() {
         res.json(data);
     } catch (error) {
         console.error('OCR API Error:', error);
-        res.status(500).json({ error: 'Falha na análise fiscal.' });
+        res.status(500).json({ 
+            error: 'Falha na análise fiscal.', 
+            details: error instanceof Error ? error.message : String(error) 
+        });
     }
   });
 
@@ -129,6 +133,71 @@ async function startServer() {
     } catch (error) {
       console.error('Error sending email:', error);
       res.status(500).json({ error: 'Falha ao enviar e-mail.', details: error instanceof Error ? error.message : String(error) });
+    }
+  });
+
+  // API Route for pushing data to Power BI
+  app.post('/api/powerbi/push', async (req, res) => {
+    const { data } = req.body;
+    const url = process.env.POWERBI_PUSH_URL;
+    
+    if (!url) {
+      return res.status(500).json({ error: 'POWERBI_PUSH_URL não configurado.' });
+    }
+    
+    try {
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(data)
+      });
+      
+      if (response.ok) {
+        res.json({ success: true });
+      } else {
+        const errorText = await response.text();
+        res.status(response.status).json({ error: 'Falha ao enviar para Power BI', details: errorText });
+      }
+    } catch (error) {
+      res.status(500).json({ error: 'Erro na requisição ao Power BI', details: error instanceof Error ? error.message : String(error) });
+    }
+  });
+
+  // API Route for triggering Power BI dataset refresh
+  app.post('/api/powerbi/refresh', async (req, res) => {
+    const datasetId = process.env.POWERBI_DATASET_ID;
+    const tenantId = process.env.AZURE_TENANT_ID;
+    const clientId = process.env.AZURE_CLIENT_ID;
+    const clientSecret = process.env.AZURE_CLIENT_SECRET;
+
+    if (!datasetId || !tenantId || !clientId || !clientSecret) {
+      return res.status(500).json({ error: 'Configurações do Power BI não completas.' });
+    }
+
+    try {
+      const credential = new ClientSecretCredential(tenantId, clientId, clientSecret);
+      const tokenResponse = await credential.getToken("https://analysis.windows.net/powerbi/api/.default");
+
+      const refreshUrl = `https://api.powerbi.com/v1.0/myorg/datasets/${datasetId}/refreshes`;
+
+      const response = await fetch(refreshUrl, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${tokenResponse.token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      if (response.ok) {
+        res.json({ success: true, message: 'Refresh iniciado com sucesso.' });
+      } else {
+        const errorText = await response.text();
+        res.status(response.status).json({ error: 'Falha ao iniciar refresh', details: errorText });
+      }
+    } catch (error) {
+      res.status(500).json({ error: 'Erro no servidor', details: error instanceof Error ? error.message : String(error) });
     }
   });
 

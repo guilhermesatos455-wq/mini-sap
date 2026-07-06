@@ -45,6 +45,8 @@ const SettingsPage: React.FC = () => {
     branding, setBranding,
     currency, setCurrency,
     odataUrl, setODataUrl,
+    powerBiPushUrl, setPowerBiPushUrl,
+    powerBiDatasetId, setPowerBiDatasetId,
     movements,
     initialStockPositions,
     finalStockPositions,
@@ -73,6 +75,8 @@ const SettingsPage: React.FC = () => {
   const [localBranding, setLocalBranding] = useState(branding);
   const [localCurrency, setLocalCurrency] = useState(currency);
   const [localODataUrl, setLocalODataUrl] = useState(odataUrl);
+  const [localPowerBiPushUrl, setLocalPowerBiPushUrl] = useState(powerBiPushUrl);
+  const [localPowerBiDatasetId, setLocalPowerBiDatasetId] = useState(powerBiDatasetId);
   const [localNotificationSettings, setLocalNotificationSettings] = useState(notificationSettings);
   const [localShowFinancialImpact, setLocalShowFinancialImpact] = useState(showFinancialImpact);
   const [localTaxMatrix, setLocalTaxMatrix] = useState(taxMatrix);
@@ -94,6 +98,8 @@ const SettingsPage: React.FC = () => {
     setLocalBranding(branding);
     setLocalCurrency(currency);
     setLocalODataUrl(odataUrl);
+    setLocalPowerBiPushUrl(powerBiPushUrl);
+    setLocalPowerBiDatasetId(powerBiDatasetId);
     setLocalNotificationSettings(notificationSettings);
     setLocalShowFinancialImpact(showFinancialImpact);
     setLocalTaxMatrix(taxMatrix);
@@ -148,6 +154,8 @@ const SettingsPage: React.FC = () => {
     setBranding(localBranding);
     setCurrency(localCurrency);
     setODataUrl(localODataUrl);
+    setPowerBiPushUrl(localPowerBiPushUrl);
+    setPowerBiDatasetId(localPowerBiDatasetId);
     setNotificationSettings(localNotificationSettings);
     setShowFinancialImpact(localShowFinancialImpact);
     setTaxMatrix(localTaxMatrix);
@@ -315,6 +323,8 @@ const SettingsPage: React.FC = () => {
         if (settings.branding !== undefined) setLocalBranding(settings.branding);
         if (settings.currency !== undefined) setLocalCurrency(settings.currency);
         if (settings.odataUrl !== undefined) setLocalODataUrl(settings.odataUrl);
+        if (settings.powerBiPushUrl !== undefined) setLocalPowerBiPushUrl(settings.powerBiPushUrl);
+        if (settings.powerBiDatasetId !== undefined) setLocalPowerBiDatasetId(settings.powerBiDatasetId);
         if (settings.notificationSettings !== undefined) setLocalNotificationSettings(settings.notificationSettings);
         
         if (settings.customPresets) {
@@ -821,6 +831,32 @@ const SettingsPage: React.FC = () => {
                   className={`w-full p-3 border rounded-xl text-sm transition-all focus:outline-none focus:ring-2 ${darkMode ? 'bg-slate-800 border-slate-700 text-slate-100 focus:ring-[#8DC63F]/50' : 'border-gray-200 focus:ring-[#8DC63F]/50'}`}
                 />
                 <p className="mt-2 text-[10px] text-slate-500 italic">Deixe em branco para usar o logo padrão.</p>
+              </div>
+
+              <div>
+                <label className={`flex items-center gap-2 text-xs font-bold mb-2 ${darkMode ? 'text-slate-400' : 'text-gray-600'}`}>
+                  Power BI Push URL
+                </label>
+                <input 
+                  type="text" 
+                  value={localPowerBiPushUrl}
+                  onChange={(e) => setLocalPowerBiPushUrl(e.target.value)}
+                  placeholder="https://api.powerbi.com/..."
+                  className={`w-full p-3 border rounded-xl text-sm transition-all focus:outline-none focus:ring-2 ${darkMode ? 'bg-slate-800 border-slate-700 text-slate-100 focus:ring-[#8DC63F]/50' : 'border-gray-200 focus:ring-[#8DC63F]/50'}`}
+                />
+              </div>
+
+              <div>
+                <label className={`flex items-center gap-2 text-xs font-bold mb-2 ${darkMode ? 'text-slate-400' : 'text-gray-600'}`}>
+                  Power BI Dataset ID
+                </label>
+                <input 
+                  type="text" 
+                  value={localPowerBiDatasetId}
+                  onChange={(e) => setLocalPowerBiDatasetId(e.target.value)}
+                  placeholder="ID do Dataset..."
+                  className={`w-full p-3 border rounded-xl text-sm transition-all focus:outline-none focus:ring-2 ${darkMode ? 'bg-slate-800 border-slate-700 text-slate-100 focus:ring-[#8DC63F]/50' : 'border-gray-200 focus:ring-[#8DC63F]/50'}`}
+                />
               </div>
 
               <div>

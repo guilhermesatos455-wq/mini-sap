@@ -16,10 +16,14 @@ import {
   ChevronsLeft,
   ChevronsRight,
   ChevronLeft,
-  ChevronRight
+  ChevronRight,
+  Download
 } from 'lucide-react';
+import JSZip from 'jszip';
+import LoadingOverlay from '../components/LoadingOverlay';
 import { useAudit } from '../context/AuditContext';
 import { motion, AnimatePresence } from 'framer-motion';
+import { saveFileLocally } from '../lib/tauri-fs';
 
 const formatoMoeda = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' });
 
@@ -27,16 +31,49 @@ const HistoryPage: React.FC = () => {
   const { historico, clearHistorico, darkMode } = useAudit();
   const [expandedId, setExpandedId] = useState<number | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
+  const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
+  const [isExporting, setIsExporting] = useState(false);
   const itemsPerPage = 5;
 
-  // const formatoMoeda = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' });
+  const isTauri = typeof window !== 'undefined' && (window as any).__TAURI__;
 
   const handleClearHistory = React.useCallback(() => {
     if (window.confirm('Tem certeza que deseja limpar todo o histórico?')) {
       clearHistorico();
       setCurrentPage(1);
+      setSelectedIds(new Set());
     }
   }, [clearHistorico]);
+
+  const toggleSelect = (id: number) => {
+    const newSelected = new Set(selectedIds);
+    if (newSelected.has(id)) {
+      newSelected.delete(id);
+    } else {
+      newSelected.add(id);
+    }
+    setSelectedIds(newSelected);
+  };
+
+  const handleExportSelected = async () => {
+    const selectedItems = historico.filter(item => selectedIds.has(item.id));
+    if (selectedItems.length === 0) return;
+
+    setIsExporting(true);
+    try {
+      const zip = new JSZip();
+      selectedItems.forEach(item => {
+        zip.file(`auditoria_${item.id}.json`, JSON.stringify(item, null, 2));
+      });
+
+      const content = await zip.generateAsync({ type: 'uint8array' });
+      await saveFileLocally(content, `auditorias_export_${new Date().toISOString().split('T')[0]}.zip`);
+    } catch (error) {
+      console.error(error);
+    } finally {
+      setIsExporting(false);
+    }
+  };
 
   const toggleExpand = React.useCallback((id: number) => {
     setExpandedId(prev => prev === id ? null : id);
@@ -56,6 +93,7 @@ const HistoryPage: React.FC = () => {
 
   return (
     <div className="space-y-8">
+      <LoadingOverlay isVisible={isExporting} message="Comprimindo e salvando auditorias..." />
       <header className="flex justify-between items-end">
         <div>
           <h1 className={`text-3xl font-bold ${darkMode ? 'text-[#8DC63F]' : 'text-gray-900'}`}>
@@ -65,14 +103,24 @@ const HistoryPage: React.FC = () => {
             Acompanhe o desempenho das últimas auditorias realizadas.
           </p>
         </div>
-        {historico.length > 0 && (
-          <button 
-            onClick={handleClearHistory}
-            className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-bold transition-all ${darkMode ? 'text-red-400 hover:bg-red-500/10' : 'text-red-600 hover:bg-red-50'}`}
-          >
-            <Trash2 className="w-4 h-4" /> Limpar Histórico
-          </button>
-        )}
+        <div className="flex gap-4">
+          {isTauri && selectedIds.size > 0 && (
+            <button 
+              onClick={handleExportSelected}
+              className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-bold transition-all ${darkMode ? 'bg-[#8DC63F] text-slate-900 hover:bg-[#78AF32]' : 'bg-[#78AF32] text-white hover:bg-[#659728]'}`}
+            >
+              <Download className="w-4 h-4" /> Exportar ({selectedIds.size})
+            </button>
+          )}
+          {historico.length > 0 && (
+            <button 
+              onClick={handleClearHistory}
+              className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-bold transition-all ${darkMode ? 'text-red-400 hover:bg-red-500/10' : 'text-red-600 hover:bg-red-50'}`}
+            >
+              <Trash2 className="w-4 h-4" /> Limpar Histórico
+            </button>
+          )}
+        </div>
       </header>
 
       {historico.length === 0 ? (
@@ -96,6 +144,14 @@ const HistoryPage: React.FC = () => {
                 <div className="p-6">
                   <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
                     <div className="flex items-center gap-4">
+                      {isTauri && (
+                        <input 
+                          type="checkbox" 
+                          checked={selectedIds.has(item.id)}
+                          onChange={() => toggleSelect(item.id)}
+                          className="w-5 h-5 rounded border-slate-700 text-[#8DC63F] focus:ring-[#8DC63F]"
+                        />
+                      )}
                       <div className={`p-3 rounded-xl ${darkMode ? 'bg-slate-800 text-[#8DC63F]' : 'bg-gray-100 text-[#78AF32]'}`}>
                         <Calendar className="w-6 h-6" />
                       </div>

@@ -204,3 +204,11 @@ export interface MovementColumnMapping {
   plant?: number;
   user?: number;
 }
+
+export interface AuditHistoryLog {
+  id: string;
+  timestamp: string;
+  user: string;
+  action: string;
+  details: string;
+}

@@ -27,23 +27,56 @@ export const OCRUpload: React.FC<OCRUploadProps> = ({ darkMode, onExtractData, p
 
     const lotesProcessados = [];
 
+    const fetchWithRetry = async (url: string, options: RequestInit, retries = 5, delay = 3000, timeout = 120000): Promise<Response> => {
+      for (let i = 0; i < retries; i++) {
+          try {
+              const controller = new AbortController();
+              const id = setTimeout(() => controller.abort(), timeout);
+              const response = await fetch(url, { ...options, signal: controller.signal });
+              clearTimeout(id);
+
+              if (response.ok) return response;
+              
+              // Se for rate limit, espera mais tempo
+              if (response.status === 429) {
+                  await new Promise(resolve => setTimeout(resolve, delay * (i + 1)));
+                  continue;
+              }
+              throw new Error(`Erro: ${response.statusText}`);
+          } catch (error: any) {
+              console.error('Fetch error details:', error);
+              if (error.name === 'AbortError') {
+                console.error('Request timed out');
+              }
+              if (i === retries - 1) throw error;
+              await new Promise(resolve => setTimeout(resolve, delay * (i + 1)));
+          }
+      }
+      throw new Error('Falha após múltiplas tentativas');
+    };
+
     // Loop sequencial: essencial para não estourar a memória do navegador com o OCR
     for (let i = 0; i < files.length; i++) {
         const file = files[i];
         setProgress({ current: i + 1, total: files.length });
   
+        // Adiciona delay entre arquivos para evitar rate limits
+        if (i > 0) {
+            await new Promise(resolve => setTimeout(resolve, 1000));
+        }
+  
         try {
           const formData = new FormData();
           formData.append('file', file);
   
-          // PASSO 2: Chamada para a API do Google AI Studio enviando o arquivo atual
-          const response = await fetch('/api/analise-fiscal', {
+          const response = await fetchWithRetry('/api/analise-fiscal', {
             method: 'POST',
             body: formData
           });
           
           if (!response.ok) {
-              throw new Error(`Erro: ${response.statusText}`);
+            const errorText = await response.text();
+            throw new Error(`Server returned ${response.status}: ${errorText}`);
           }
           
           const data = await response.json();

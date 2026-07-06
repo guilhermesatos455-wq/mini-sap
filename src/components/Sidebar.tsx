@@ -29,6 +29,7 @@ const Sidebar: React.FC = React.memo(() => {
         { to: '/dashboard', icon: <LayoutDashboard className="w-4 h-4" />, label: 'Dashboard' },
         { to: '/details', icon: <TableIcon className="w-4 h-4" />, label: 'Tabela de Detalhes' },
         { to: '/history', icon: <History className="w-4 h-4" />, label: 'Histórico' },
+        { to: '/audit-history', icon: <ScrollText className="w-4 h-4" />, label: 'Logs de Auditoria' },
       ]
     },
     {

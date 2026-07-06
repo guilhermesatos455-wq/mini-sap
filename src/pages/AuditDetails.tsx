@@ -53,6 +53,7 @@ import { ExportModal } from '../components/AuditDetails/ExportModal';
 import { ColumnToggleDropdown } from '../components/AuditDetails/ColumnToggleDropdown';
 import { AuditTimeline } from '../components/AuditDetails/AuditTimeline';
 import { BulkEditModal } from '../components/AuditDetails/BulkEditModal';
+import { saveFileLocally } from '../lib/tauri-fs';
 import { QUICK_EXAMPLES } from '../constants/auditExamples';
 import { EXPORT_COLUMNS, QUICK_EXPORT_COLUMNS } from '../constants/auditConstants';
 import { useDraggableScroll } from '../hooks/useDraggableScroll';
@@ -1045,7 +1046,7 @@ const AuditDetailsPage: React.FC = () => {
 
     setExportProgress({ active: true, progress: 5, status: 'Iniciando exportação Excel...' });
 
-    setTimeout(() => {
+    setTimeout(async () => {
       const wb = XLSX.utils.book_new();
 
       // Determine data to process
@@ -1391,9 +1392,24 @@ const AuditDetailsPage: React.FC = () => {
     }
 
     setExportProgress(prev => ({ ...prev, progress: 95, status: 'Finalizando arquivo...' }));
-    XLSX.writeFile(wb, `Auditoria_MiniSAP_${new Date().toISOString().split('T')[0]}.xlsx`);
+    
+    const fileName = `Auditoria_MiniSAP_${new Date().toISOString().split('T')[0]}.xlsx`;
+    const isTauri = typeof window !== 'undefined' && (window as any).__TAURI__;
+    
+    if (isTauri) {
+      const wbout = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
+      const result = await saveFileLocally(wbout, fileName);
+      if (result.success) {
+        addToast('Excel exportado com sucesso!', 'success');
+      } else if (!result.cancelled) {
+        addToast('Erro ao exportar arquivo.', 'error');
+      }
+    } else {
+      XLSX.writeFile(wb, fileName);
+      addToast('Excel exportado com sucesso!', 'success');
+    }
+    
     setIsExportModalOpen(false);
-    addToast('Excel exportado com sucesso!', 'success');
     setTimeout(() => setExportProgress({ active: false, progress: 0, status: '' }), 500);
     }, 100);
   }, [resultado, allFilteredItems, searchTerm, filterCfop, filterSupplier, filterDataInicio, filterDataFim, filterEmpresa, addToast, selectedItems]);

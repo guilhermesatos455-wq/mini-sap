@@ -6,6 +6,7 @@ import { ToastContainer } from './ToastContainer';
 import { NatuAssistChat } from './NatuAssistChat';
 import { useAudit } from '../context/AuditContext';
 import { Bot } from 'lucide-react';
+import DesktopIndicator from './DesktopIndicator';
 
 const Layout: React.FC = () => {
   const { darkMode } = useAudit();
@@ -13,6 +14,7 @@ const Layout: React.FC = () => {
 
   return (
     <div className={`flex h-screen overflow-hidden relative ${darkMode ? 'bg-slate-900 text-slate-100' : 'bg-slate-50 text-gray-900'}`}>
+      <DesktopIndicator />
       <Sidebar />
       <ToastContainer />
       <main className="flex-1 overflow-y-auto p-4 md:p-8 pb-24 md:pb-8">

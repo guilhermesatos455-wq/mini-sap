@@ -85,8 +85,8 @@ export const PainelConciliacao: React.FC<ResultadosProps> = ({ darkMode, primary
             {estaExpandido && (
               <div className={`p-4 border-t ${darkMode ? 'border-slate-800 bg-slate-900/80' : 'border-slate-100 bg-slate-50'}`}>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {arquivos.map((arq, index) => (
-                    <div key={index} className={`p-4 rounded-xl border ${darkMode ? 'border-slate-700 bg-slate-800' : 'border-slate-200 bg-white'}`}>
+                  {arquivos.map((arq) => (
+                    <div key={arq.nomeArquivo} className={`p-4 rounded-xl border ${darkMode ? 'border-slate-700 bg-slate-800' : 'border-slate-200 bg-white'}`}>
                       <div className="flex items-center gap-2 mb-3">
                         <FileText className={`w-5 h-5 ${arq.nomeArquivo.includes('ND') ? 'text-purple-500' : 'text-blue-500'}`} />
                         <span className={`font-bold text-sm ${darkMode ? 'text-slate-200' : 'text-slate-700'}`}>

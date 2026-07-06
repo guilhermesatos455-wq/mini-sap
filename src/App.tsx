@@ -8,6 +8,7 @@ import DashboardPage from './pages/Dashboard';
 import AuditDetailsPage from './pages/AuditDetails';
 import ErrorBoundary from './components/ErrorBoundary';
 import HistoryPage from './pages/History';
+import AuditHistoryPage from './pages/AuditHistory';
 import SettingsPage from './pages/Settings';
 import HelpPage from './pages/Help';
 import PriceSimulatorPage from './pages/PriceSimulator';
@@ -72,6 +73,7 @@ const App: React.FC = () => {
                     </ErrorBoundary>
                   } />
                   <Route path="history" element={<HistoryPage />} />
+                  <Route path="audit-history" element={<AuditHistoryPage />} />
                   <Route path="movements" element={<MovementsPage />} />
                   <Route path="material-dashboard" element={<MaterialDashboardPage />} />
                   <Route path="simulator" element={<PriceSimulatorPage />} />

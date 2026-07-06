@@ -1,8 +1,36 @@
 import { get as getIDB, set as setIDB, del as delIDB } from 'idb-keyval';
+import { AuditHistoryLog } from '../types/audit';
+
+const AUDIT_LOGS_KEY = 'audit_history_logs';
 
 /**
- * Safely sets an item in localStorage with error handling for quota limits
+ * Persists an audit log entry to IndexedDB
  */
+export const persistAuditLog = async (log: AuditHistoryLog): Promise<void> => {
+  try {
+    const logs = await getIDB<AuditHistoryLog[]>(AUDIT_LOGS_KEY) || [];
+    logs.push(log);
+    // Keep only last 1000 logs to avoid performance issues
+    if (logs.length > 1000) {
+      logs.shift();
+    }
+    await setIDB(AUDIT_LOGS_KEY, logs);
+  } catch (e) {
+    console.error('Error persisting audit log:', e);
+  }
+};
+
+/**
+ * Retrieves audit logs from IndexedDB
+ */
+export const getAuditLogs = async (): Promise<AuditHistoryLog[]> => {
+  try {
+    return await getIDB<AuditHistoryLog[]>(AUDIT_LOGS_KEY) || [];
+  } catch (e) {
+    console.error('Error reading audit logs:', e);
+    return [];
+  }
+};
 export const safeLocalStorageSet = (key: string, data: any): boolean => {
   try {
     const stringifiedData = JSON.stringify(data);

@@ -1,4 +1,4 @@
-import React, { useMemo, useState, lazy, Suspense, useCallback } from 'react';
+import React, { useMemo, useState, lazy, Suspense, useCallback, useEffect } from 'react';
 import { 
   TrendingUp, 
   TrendingDown, 
@@ -22,6 +22,15 @@ import {
   RefreshCw,
   Clock
 } from 'lucide-react';
+import { 
+  LineChart,
+  Line,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer
+} from 'recharts';
 import { useAudit } from '../context/AuditContext';
 import { useNavigate } from 'react-router-dom';
 import { generateAuditPDF } from '../utils/pdfGenerator';
@@ -66,8 +75,30 @@ const DashboardPage: React.FC = () => {
     syncSapStatus,
     syncSapLastDate,
     syncSapData,
-    addToast
+    addToast,
+    powerBiPushLogs
   } = useAudit();
+
+  const powerBiData = useMemo(() => {
+    return powerBiPushLogs.slice(-10).map((log, index) => ({
+        index: index,
+        timestamp: new Date(log.timestamp).toLocaleTimeString(),
+        status: log.success ? 1 : 0,
+        message: log.message
+    }));
+  }, [powerBiPushLogs]);
+
+  const [lastNotifiedErrorTimestamp, setLastNotifiedErrorTimestamp] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (powerBiPushLogs.length > 0) {
+      const lastLog = powerBiPushLogs[powerBiPushLogs.length - 1];
+      if (!lastLog.success && lastLog.timestamp !== lastNotifiedErrorTimestamp) {
+        addToast(`Falha ao enviar dados para Power BI: ${lastLog.message}`, 'error');
+        setLastNotifiedErrorTimestamp(lastLog.timestamp);
+      }
+    }
+  }, [powerBiPushLogs, lastNotifiedErrorTimestamp, addToast]);
 
   const formatoMoeda = useMemo(() => {
     return new Intl.NumberFormat('pt-BR', { 
@@ -440,6 +471,22 @@ const DashboardPage: React.FC = () => {
 
       {/* NatuAssist Insights Section */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        {powerBiData.length > 0 && (
+          <div className={`p-6 rounded-2xl border ${darkMode ? 'bg-slate-900 border-slate-800' : 'bg-white border-gray-200'}`}>
+            <h3 className={`text-lg font-bold mb-4 ${darkMode ? 'text-[#8DC63F]' : 'text-gray-800'}`}>Status Envios Power BI</h3>
+            <div className="h-48">
+              <ResponsiveContainer width="100%" height="100%">
+                <LineChart data={powerBiData}>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis dataKey="timestamp" />
+                  <YAxis domain={[0, 1]} />
+                  <Tooltip />
+                  <Line type="monotone" dataKey="status" stroke="#8DC63F" strokeWidth={2} />
+                </LineChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Alerts Section */}
@@ -545,7 +592,7 @@ const DashboardPage: React.FC = () => {
                 const totalImpacto = s.prejuizo + s.economia;
                 const percPrejuizo = (s.prejuizo / totalImpacto) * 100;
                 return (
-                  <div key={i} className={`p-4 rounded-xl border transition-all hover:border-[#8DC63F]/50 ${darkMode ? 'bg-slate-800/30 border-slate-700' : 'bg-gray-50/50 border-gray-100'}`}>
+                  <div key={s.name} className={`p-4 rounded-xl border transition-all hover:border-[#8DC63F]/50 ${darkMode ? 'bg-slate-800/30 border-slate-700' : 'bg-gray-50/50 border-gray-100'}`}>
                     <div className="flex items-center justify-between mb-3">
                       <div className="flex items-center gap-3">
                         <div className={`w-8 h-8 rounded-lg flex items-center justify-center font-bold text-xs ${darkMode ? 'bg-slate-700 text-slate-300' : 'bg-white text-gray-400 shadow-sm'}`}>
@@ -628,7 +675,7 @@ const DashboardPage: React.FC = () => {
                 <tbody className="divide-y divide-transparent">
                   {paginatedSuppliers.map((s, i) => (
                     <tr 
-                      key={i} 
+                      key={s.name} 
                       className={`group transition-colors cursor-pointer ${darkMode ? 'hover:bg-slate-800/50' : 'hover:bg-gray-50'}`}
                       onClick={() => {
                         handleDrillDown('supplier', s.name);

@@ -25,9 +25,9 @@ import { db, auth } from '../firebase';
 import { useAuditWorker } from '../hooks/useAuditWorker';
 import { useMovementsWorker } from '../hooks/useMovementsWorker';
 import { mergeItemData, recalculateTotals, persistComment, calculateItemImpact } from '../utils/auditUtils';
-import { safeLocalStorageSet, safeLocalStorageGet, setLargeData, getLargeData } from '../utils/storageUtils';
+import { safeLocalStorageSet, safeLocalStorageGet, setLargeData, getLargeData, persistAuditLog, getAuditLogs } from '../utils/storageUtils';
 
-import { Divergencia, SAPMovementType, MaterialMovement, AuditRecipe, StockPosition, MovementColumnMapping, ShowColunas } from '../types/audit';
+import { Divergencia, SAPMovementType, MaterialMovement, AuditRecipe, StockPosition, MovementColumnMapping, ShowColunas, AuditHistoryLog } from '../types/audit';
 
 interface AuditContextType {
   ckm3ManualMapping: Record<string, string>;
@@ -113,6 +113,14 @@ interface AuditContextType {
   setShowBranding: (b: boolean) => void;
   showTaxMatrix: boolean;
   setShowTaxMatrix: (b: boolean) => void;
+  powerBiPushUrl: string;
+  setPowerBiPushUrl: (url: string) => void;
+  powerBiDatasetId: string;
+  setPowerBiDatasetId: (id: string) => void;
+  powerBiPushLogs: { timestamp: string; success: boolean; message: string }[];
+  addPowerBiPushLog: (log: { timestamp: string; success: boolean; message: string }) => void;
+  auditLogs: AuditHistoryLog[];
+  addAuditLog: (action: string, details: string) => Promise<void>;
   showColunas: ShowColunas;
   setShowColunas: React.Dispatch<React.SetStateAction<ShowColunas>>;
   filterHideZeroes: boolean;
@@ -490,6 +498,37 @@ export const AuditProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     const saved = safeLocalStorageGet<any>('miniSapSettings', null);
     return saved ? saved.showTaxMatrix ?? true : true;
   });
+  const [powerBiPushUrl, setPowerBiPushUrl] = useState(() => {
+    const saved = safeLocalStorageGet<any>('miniSapSettings', null);
+    return saved ? saved.powerBiPushUrl || '' : '';
+  });
+  const [powerBiDatasetId, setPowerBiDatasetId] = useState(() => {
+    const saved = safeLocalStorageGet<any>('miniSapSettings', null);
+    return saved ? saved.powerBiDatasetId || '' : '';
+  });
+  const [powerBiPushLogs, setPowerBiPushLogs] = useState<{ timestamp: string; success: boolean; message: string }[]>(() => {
+    return safeLocalStorageGet('miniSapPowerBiLogs', []);
+  });
+
+  const addPowerBiPushLog = useCallback((log: { timestamp: string; success: boolean; message: string }) => {
+    setPowerBiPushLogs(prev => {
+      const updated = [...prev, log].slice(-50); // Keep last 50 logs
+      safeLocalStorageSet('miniSapPowerBiLogs', updated);
+      return updated;
+    });
+  }, []);
+
+  const [auditLogs, setAuditLogs] = useState<AuditHistoryLog[]>([]);
+
+  useEffect(() => {
+    const loadLogs = async () => {
+      const logs = await getAuditLogs();
+      setAuditLogs(logs);
+    };
+    loadLogs();
+  }, []);
+
+
   const [showColunas, setShowColunas] = useState<ShowColunas>(() => {
     return safeLocalStorageGet('miniSapShowColunas', {
       empresa: false,
@@ -841,6 +880,18 @@ export const AuditProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
   const [isAIOpen, setIsAIOpen] = useState(false);
   const [aiUser, setAiUser] = useState<{ matricula: string; nome: string; email?: string; uid?: string } | null>(null);
+
+  const addAuditLog = useCallback(async (action: string, details: string) => {
+    const newLog: AuditHistoryLog = {
+      id: crypto.randomUUID(),
+      timestamp: new Date().toISOString(),
+      user: aiUser?.nome || 'Anônimo',
+      action,
+      details
+    };
+    await persistAuditLog(newLog);
+    setAuditLogs(prev => [...prev, newLog]);
+  }, [aiUser]);
   const [isAuthReady, setIsAuthReady] = useState(false);
   const [registeredUsers, setRegisteredUsers] = useState<any[]>([]);
   const [bannedDevices, setBannedDevices] = useState<string[]>([]);
@@ -1209,7 +1260,8 @@ export const AuditProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         currentStatus: 'Aprovado'
       }]
     } as any);
-  }, [aiUser, updateDivergencia, resultado]);
+    addAuditLog('Aprovação', `Divergência ${id} aprovada.`);
+  }, [aiUser, updateDivergencia, resultado, addAuditLog]);
 
   const bulkAproveDivergencia = useCallback((ids: (number | string)[]) => {
     ids.forEach(id => aproveDivergencia(id));
@@ -1235,7 +1287,8 @@ export const AuditProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         currentStatus: 'Ajuste Rejeitado'
       }]
     } as any);
-  }, [aiUser, updateDivergencia, resultado]);
+    addAuditLog('Rejeição', `Divergência ${id} rejeitada: ${motivo}`);
+  }, [aiUser, updateDivergencia, resultado, addAuditLog]);
 
   const bulkRejeitarDivergencia = useCallback((ids: (number | string)[], motivo: string) => {
     ids.forEach(id => rejeitarDivergencia(id, motivo));
@@ -1255,7 +1308,9 @@ export const AuditProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       branding,
       currency,
       notificationSettings,
-      showFinancialImpact
+      showFinancialImpact,
+      powerBiPushUrl,
+      powerBiDatasetId
     });
     
     if (!settingsSaved) {
@@ -1372,6 +1427,10 @@ export const AuditProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     showMovements, setShowMovements,
     showBranding, setShowBranding,
     showTaxMatrix, setShowTaxMatrix,
+    powerBiPushUrl, setPowerBiPushUrl,
+    powerBiDatasetId, setPowerBiDatasetId,
+    powerBiPushLogs, addPowerBiPushLog,
+    auditLogs, addAuditLog,
     showColunas, setShowColunas,
     filterHideZeroes, setFilterHideZeroes,
     isPresentationMode, setIsPresentationMode,
@@ -1420,6 +1479,9 @@ export const AuditProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     showMovements,
     showBranding,
     showTaxMatrix,
+    powerBiPushUrl,
+    powerBiDatasetId,
+    powerBiPushLogs,
     showColunas,
     filterHideZeroes,
     isPresentationMode, 
