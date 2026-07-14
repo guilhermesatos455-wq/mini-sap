@@ -48,11 +48,13 @@ const UploadPage: React.FC = () => {
   const handleFileNF = React.useCallback((files: FileList | null) => {
     if (files) {
       const newFiles = Array.from(files);
-      const existingNames = new Set(filesNF.map(f => f.name));
-      const filteredNewFiles = newFiles.filter(f => !existingNames.has(f.name));
-      setFilesNF([...filesNF, ...filteredNewFiles]);
+      setFilesNF((prevFiles) => {
+        const existingNames = new Set(prevFiles.map(f => f.name));
+        const filteredNewFiles = newFiles.filter(f => !existingNames.has(f.name));
+        return [...prevFiles, ...filteredNewFiles];
+      });
     }
-  }, [setFilesNF, filesNF]);
+  }, [setFilesNF]);
 
   const handleRemoveFileNF = React.useCallback((fileName: string) => {
     setFilesNF(filesNF.filter(f => f.name !== fileName));

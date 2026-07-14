@@ -1,5 +1,6 @@
 
 import express from 'express';
+import cors from 'cors';
 import { createServer as createViteServer } from 'vite';
 import path from 'path';
 import { fileURLToPath } from 'url';
@@ -8,6 +9,7 @@ import dotenv from 'dotenv';
 import rateLimit from 'express-rate-limit';
 import admin from 'firebase-admin';
 import { chatWithGemini, ai } from './gemini';
+import { extrairDadosMultiplasNotas } from './ocrV2';
 import multer from 'multer';
 import { ClientSecretCredential } from "@azure/identity";
 
@@ -42,6 +44,7 @@ async function startServer() {
   const app = express();
   const PORT = 3000;
 
+  app.use(cors());
   app.use(express.json({ limit: '50mb' }));
 
   app.use((err: any, req: any, res: any, next: any) => {
@@ -65,6 +68,7 @@ async function startServer() {
   });
 
   // API Route for fiscal document analysis via OCR text
+  /*
   app.post('/api/analise-fiscal', upload.single('file'), async (req, res) => {
     const file = req.file;
     if (!file) {
@@ -77,10 +81,23 @@ async function startServer() {
         const mimeType = file.mimetype;
         
         const response = await ai.models.generateContent({
-             model: "gemini-1.5-pro", 
+             model: "gemini-1.5-flash", 
              contents: {
                parts: [
-                 { text: "Analise a nota fiscal ou documento fiscal e extraia os campos: { 'numeroNF', 'fornecedor', 'data', 'valorTotal', 'referencia_po', 'processo_imp', 'frete' }. Se não encontrar, retorne nulo. Apenas o JSON puro." },
+                 { text: `Você é um especialista em extração de dados de documentos fiscais.
+Analise a imagem da nota fiscal fornecida e extraia os seguintes campos:
+- numeroNF (string, número da nota fiscal)
+- fornecedor (string, nome do fornecedor)
+- data (string, data no formato DD/MM/AAAA)
+- valorTotal (number, valor total da nota)
+- referencia_po (string, referência da ordem de compra, se houver)
+- processo_imp (string, número do processo de importação, se houver)
+- frete (number, valor do frete, se houver)
+
+Retorne APENAS um objeto JSON válido, sem texto explicativo, sem markdown, apenas o JSON puro.
+Se um campo não for encontrado, retorne null.
+Se o valor for numérico, retorne como número.
+Exemplo: {"numeroNF": "12345", "fornecedor": "Empresa ABC", "data": "10/05/2023", "valorTotal": 1500.50, "referencia_po": null, "processo_imp": null, "frete": 50.0}` },
                  { inlineData: { mimeType, data: base64 } }
                ]
              }
@@ -95,6 +112,34 @@ async function startServer() {
             error: 'Falha na análise fiscal.', 
             details: error instanceof Error ? error.message : String(error) 
         });
+    }
+  });
+  */
+
+  // API Route for fiscal document analysis via Tesseract OCR v2
+  app.post('/api/analise-fiscal-v2', upload.array('files'), async (req, res) => {
+    const files = req.files as Express.Multer.File[];
+    if (!files || files.length === 0) {
+      return res.status(400).json({ error: 'Nenhum arquivo enviado.' });
+    }
+
+    try {
+      // Salva os arquivos temporariamente para o Tesseract processar
+      const filePaths = await Promise.all(files.map(async (file) => {
+        const filePath = path.join('/tmp', `${Date.now()}-${file.originalname}`);
+        await import('fs/promises').then(fs => fs.writeFile(filePath, file.buffer));
+        return filePath;
+      }));
+
+      const resultados = await extrairDadosMultiplasNotas(filePaths);
+
+      // Limpeza dos arquivos temporários
+      await import('fs/promises').then(fs => Promise.all(filePaths.map(p => fs.unlink(p))));
+
+      res.json({ status: 'ok', dados: resultados });
+    } catch (error) {
+      console.error('OCR V2 API Error:', error);
+      res.status(500).json({ error: 'Falha na análise fiscal V2.', details: String(error) });
     }
   });
 

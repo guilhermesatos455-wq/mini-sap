@@ -184,14 +184,26 @@ self.onmessage = (e) => {
           return idx;
       };
 
-      const idxCkm3Mat = checkHeader('ckm3Mat', ['Material', 'Cod. Material', 'Produto', 'Cod. Mat'], mapColunas.ckm3Mat || 'C', 'Material');
-      const idxCkm3Qtd = checkHeader('ckm3Qtd', ['Quantidade', 'Estoque', 'Qtd', 'Saldo'], mapColunas.ckm3Qtd || 'I', 'Quantidade');
-      const idxCkm3Centro = checkHeader('ckm3Centro', ['Centro', 'Planta', 'Plant', 'Local'], mapColunas.ckm3Centro || 'C', 'Centro');
-      const idxCkm3Desc = checkHeader('ckm3Desc', ['Descrição', 'Nome', 'Texto', 'Description', 'Material Desc'], mapColunas.ckm3Desc || 'D', 'Descrição');
-      const idxCkm3Custo = XLSX.utils.decode_col('L');
-      
-      const idxCkm3Categoria = fuzzyDetect(actualHeaders, ['Categoria', 'Cat.', 'Category'], mapColunas.ckm3Categoria || 'G');
+      const idxCkm3Centro = checkHeader('ckm3Centro', ['Centro', 'Planta', 'Plant', 'Local'], mapColunas.ckm3Centro || 'A', 'Centro');
+      const idxCkm3CodMat = checkHeader('ckm3CodMat', ['Cód Material', 'Cod. Material'], mapColunas.ckm3CodMat || 'B', 'Cód Material');
+      const idxCkm3Mat = checkHeader('ckm3Mat', ['Material', 'Produto'], mapColunas.ckm3Mat || 'C', 'Material');
+      const idxCkm3Cat = checkHeader('ckm3Cat', ['Categoria', 'Cat.'], mapColunas.ckm3Cat || 'D', 'Categoria');
+      const idxCkm3CodTipoMat = checkHeader('ckm3CodTipoMat', ['Cód Tipo Material', 'Tipo Material'], mapColunas.ckm3CodTipoMat || 'E', 'Cód Tipo Material');
+      const idxCkm3QtdTrans = checkHeader('ckm3QtdTrans', ['Qtd. transação', 'Quantidade'], mapColunas.ckm3QtdTrans || 'F', 'Qtd. transação');
+      const idxCkm3VlrReal = checkHeader('ckm3VlrReal', ['Valor real', 'Vlr'], mapColunas.ckm3VlrReal || 'G', 'Valor real');
+      const idxCkm3PrecoMedio = checkHeader('ckm3PrecoMedio', ['Média de Preço médio móvel', 'Preço Médio'], mapColunas.ckm3PrecoMedio || 'H', 'Média de Preço médio móvel');
+      const idxCkm3MatPrima = checkHeader('ckm3MatPrima', ['Matéria Prima'], mapColunas.ckm3MatPrima || 'I', 'Matéria Prima');
+      const idxCkm3Embalagem = checkHeader('ckm3Embalagem', ['Embalagem'], mapColunas.ckm3Embalagem || 'J', 'Embalagem');
+      const idxCkm3Terceiros = checkHeader('ckm3Terceiros', ['Terceiros'], mapColunas.ckm3Terceiros || 'K', 'Terceiros');
+      const idxCkm3Reparo = checkHeader('ckm3Reparo', ['Reparo/reprocesso'], mapColunas.ckm3Reparo || 'L', 'Reparo/reprocesso');
+      const idxCkm3MOD = checkHeader('ckm3MOD', ['Mão de obra direta', 'MOD'], mapColunas.ckm3MOD || 'M', 'Mão de obra direta');
+      const idxCkm3Maquina = checkHeader('ckm3Maquina', ['Máquina/depreciação'], mapColunas.ckm3Maquina || 'N', 'Máquina/depreciação');
+      const idxCkm3MOI = checkHeader('ckm3MOI', ['Mão de obra indireta', 'MOI'], mapColunas.ckm3MOI || 'O', 'Mão de obra indireta');
+      const idxCkm3GGF = checkHeader('ckm3GGF', ['Gastos gerais fábrica', 'GGF'], mapColunas.ckm3GGF || 'P', 'Gastos gerais fábrica');
       const idxCkm3Processo = XLSX.utils.decode_col(mapColunas.ckm3Processo || 'H');
+      const idxCkm3Custo = XLSX.utils.decode_col('L');
+      const idxCkm3Desc = checkHeader('ckm3Desc', ['Descrição', 'Nome', 'Texto', 'Description', 'Material Desc'], mapColunas.ckm3Desc || 'C', 'Descrição');
+      const idxCkm3Qtd = checkHeader('ckm3Qtd', ['Quantidade', 'Estoque', 'Qtd', 'Saldo'], mapColunas.ckm3Qtd || 'I', 'Quantidade');
       
       const categoriaFiltroRaw = mapColunas.ckm3CategoriaFiltro || [];
       const categoriaFiltro = Array.isArray(categoriaFiltroRaw) ? categoriaFiltroRaw.map((s: string) => s.trim().toUpperCase()).filter(Boolean) : [];
@@ -203,7 +215,7 @@ self.onmessage = (e) => {
         if (!linha || linha.length <= idxCkm3Mat) continue;
         
         const codMat = linha[idxCkm3Mat];
-        const categoria = idxCkm3Categoria >= 0 ? String(linha[idxCkm3Categoria] || '').trim().toUpperCase() : '';
+        const categoria = idxCkm3Cat >= 0 ? String(linha[idxCkm3Cat] || '').trim().toUpperCase() : '';
         const processo = String(linha[idxCkm3Processo] || '').trim().toUpperCase();
 
         if (categoriaFiltro.length > 0 && !categoriaFiltro.some(f => categoria.includes(f))) continue;

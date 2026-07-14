@@ -57,7 +57,10 @@ const FileUploadZone: React.FC<FileUploadZoneProps> = ({
           multiple={multiple} 
           accept=".xlsx,.xls" 
           className="hidden" 
-          onChange={(e) => onFileSelect(e.target.files)} 
+          onChange={(e) => {
+            onFileSelect(e.target.files);
+            e.target.value = '';
+          }} 
           ref={fileInputRef} 
         />
         

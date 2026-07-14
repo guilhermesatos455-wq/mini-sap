@@ -1806,7 +1806,7 @@ const AuditDetailsPage: React.FC = () => {
   };
 
   const SortableHeader = ({ label, columnKey, width, align = 'left', tooltip }: { label: string; columnKey: string; width: string; align?: 'left' | 'right' | 'center'; tooltip?: string }) => (
-    <div 
+    <th 
       className={`flex items-center ${align === 'right' ? 'justify-end' : align === 'center' ? 'justify-center' : ''} px-2 shrink-0 ${width} h-full cursor-pointer hover:text-brand-green transition-colors group`}
       onClick={() => handleSort(columnKey)}
     >
@@ -1816,7 +1816,7 @@ const AuditDetailsPage: React.FC = () => {
           <SortIcon columnKey={columnKey} />
         </div>
       </Tooltip>
-    </div>
+    </th>
   );
 
   const VirtuosoComponents = useMemo(() => ({
@@ -1826,8 +1826,8 @@ const AuditDetailsPage: React.FC = () => {
   }), []);
 
   const VirtuosoHeader = useCallback(() => (
-    <div className={`flex items-center text-[10px] uppercase tracking-wider font-black border-b sticky top-0 z-30 h-12 transition-colors duration-500 ${selectedItems.size > 0 ? (darkMode ? 'bg-brand-green/10 border-brand-green/30' : 'bg-brand-green/5 border-brand-green/20') : (darkMode ? 'bg-slate-800 border-slate-800' : 'bg-slate-50 border-slate-200 shadow-sm')} ${darkMode ? 'text-slate-400' : 'text-slate-500'}`}>
-      <div className={`flex items-center justify-center shrink-0 w-10 h-full sticky left-0 z-40 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.05)] transition-colors duration-500 ${selectedItems.size > 0 ? (darkMode ? 'bg-slate-800' : 'bg-brand-light') : (darkMode ? 'bg-slate-800' : 'bg-slate-50')}`}>
+    <tr className={`flex items-center text-[10px] uppercase tracking-wider font-black border-b sticky top-0 z-30 h-12 transition-colors duration-500 ${selectedItems.size > 0 ? (darkMode ? 'bg-brand-green/10 border-brand-green/30' : 'bg-brand-green/5 border-brand-green/20') : (darkMode ? 'bg-slate-800 border-slate-800' : 'bg-slate-50 border-slate-200 shadow-sm')} ${darkMode ? 'text-slate-400' : 'text-slate-500'}`}>
+      <th className={`flex items-center justify-center shrink-0 w-10 h-full sticky left-0 z-40 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.05)] transition-colors duration-500 ${selectedItems.size > 0 ? (darkMode ? 'bg-slate-800' : 'bg-brand-light') : (darkMode ? 'bg-slate-800' : 'bg-slate-50')}`}>
         <Tooltip content={isAllSelected ? "Desmarcar todos" : "Selecionar itens visíveis"} darkMode={darkMode}>
           <input 
             type="checkbox" 
@@ -1858,8 +1858,8 @@ const AuditDetailsPage: React.FC = () => {
             </div>
           </>
         )}
-      </div>
-      <div className={`flex items-center justify-center shrink-0 w-80 h-full sticky left-10 z-40 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)] ${darkMode ? 'bg-slate-800' : 'bg-gray-100'}`}>
+      </th>
+      <th className={`flex items-center justify-center shrink-0 w-80 h-full sticky left-10 z-40 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)] ${darkMode ? 'bg-slate-800' : 'bg-gray-100'}`}>
         <div className="flex items-center justify-center gap-2">
           <Tooltip content={isAllExpanded ? "Recolher Todos" : "Expandir Todos"} darkMode={darkMode}>
             <button
@@ -1876,7 +1876,7 @@ const AuditDetailsPage: React.FC = () => {
           </Tooltip>
           Material / Descrição
         </div>
-      </div>
+      </th>
       <SortableHeader label="CFOP" columnKey="cfop" width="w-24" />
       <SortableHeader label="Fornecedor" columnKey="fornecedor" width="w-64" />
       {showColunas.empresa && <SortableHeader label="Empresa" columnKey="empresa" width="w-48" />}
@@ -1896,10 +1896,10 @@ const AuditDetailsPage: React.FC = () => {
       <SortableHeader label={isGrouped ? "Σ Vlr. Real CKM3" : "L - Vlr. Real CKM3"} columnKey="custoPadrao" width="w-32" align="right" tooltip={isGrouped ? "Soma do valor real do CKM3" : "Custo padrão unitário SAP"} />
       <SortableHeader label="Variação" columnKey="variacaoPerc" width="w-32" align="right" />
       {showFinancialImpact && <SortableHeader label={isGrouped ? "Σ Impacto" : "Impacto"} columnKey="impactoFinanceiro" width="w-32" align="right" tooltip={isGrouped ? "Soma do impacto financeiro" : "Impacto financeiro individual"} />}
-      <div className="flex items-center justify-center px-2 shrink-0 w-24 h-full text-center">Notas</div>
+      <th className="flex items-center justify-center px-2 shrink-0 w-24 h-full text-center">Notas</th>
       <SortableHeader label="Status" columnKey="status" width="w-24" align="center" />
       <SortableHeader label="Tipo" columnKey="tipo" width="w-24" align="center" />
-    </div>
+    </tr>
   ), [darkMode, isAllSelected, toggleSelectAll, isAllExpanded, toggleAllRows, showColunas, SortableHeader]);
 
 

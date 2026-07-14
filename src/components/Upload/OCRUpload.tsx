@@ -55,53 +55,46 @@ export const OCRUpload: React.FC<OCRUploadProps> = ({ darkMode, onExtractData, p
       throw new Error('Falha após múltiplas tentativas');
     };
 
-    // Loop sequencial: essencial para não estourar a memória do navegador com o OCR
-    for (let i = 0; i < files.length; i++) {
-        const file = files[i];
-        setProgress({ current: i + 1, total: files.length });
-  
-        // Adiciona delay entre arquivos para evitar rate limits
-        if (i > 0) {
-            await new Promise(resolve => setTimeout(resolve, 1000));
-        }
-  
-        try {
-          const formData = new FormData();
-          formData.append('file', file);
-  
-          const response = await fetchWithRetry('/api/analise-fiscal', {
+    // Loop sequencial refatorado para envio único em lote
+    try {
+        const formData = new FormData();
+        files.forEach(file => formData.append('files', file));
+        
+        const response = await fetchWithRetry('http://localhost:3000/api/analise-fiscal-v2', {
             method: 'POST',
             body: formData
-          });
-          
-          if (!response.ok) {
+        });
+        
+        if (!response.ok) {
             const errorText = await response.text();
             throw new Error(`Server returned ${response.status}: ${errorText}`);
-          }
-          
-          const data = await response.json();
-  
-          // Extrai a subpasta
-          const caminho = (file as any).webkitRelativePath?.split('/') || []; 
-          const nomePasta = caminho.length > 2 ? caminho[caminho.length - 2] : "Raiz"; 
-  
-          // Adicionando o resultado à nossa lista
-          lotesProcessados.push({
-            pasta: nomePasta,
-            nomeArquivo: file.name,
-            status: "SUCESSO",
-            dados: data
-          });
-  
-        } catch (error) {
-          console.error(`Erro ao processar o arquivo ${file.name}:`, error);
-          lotesProcessados.push({
-            pasta: "ERRO",
-            nomeArquivo: file.name,
-            status: "ERRO"
-          });
         }
-      }
+        
+        const data = await response.json();
+        
+        // O backend retorna { status: 'ok', dados: [...] }
+        data.dados.forEach((resultado: any, index: number) => {
+            const file = files[index];
+            const caminho = (file as any).webkitRelativePath?.split('/') || []; 
+            const nomePasta = caminho.length > 2 ? caminho[caminho.length - 2] : "Raiz"; 
+            
+            lotesProcessados.push({
+                pasta: nomePasta,
+                nomeArquivo: file.name,
+                status: resultado.status === 'sucesso' ? "SUCESSO" : "ERRO",
+                dados: resultado
+            });
+        });
+    } catch (error) {
+        console.error(`Erro ao processar o lote:`, error);
+        files.forEach(file => {
+            lotesProcessados.push({
+                pasta: "ERRO",
+                nomeArquivo: file.name,
+                status: "ERRO"
+            });
+        });
+    }
   
       // Envia a lista completa de volta para o componente pai renderizar a tabela
       onExtractData(lotesProcessados);

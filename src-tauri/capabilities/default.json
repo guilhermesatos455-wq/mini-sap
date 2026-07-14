@@ -1,0 +1,16 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "default-capability",
+  "description": "Permissões padrão para o Mini SAP Auditor",
+  "windows": [
+    "main"
+  ],
+  "permissions": [
+    "fs:default",
+    "dialog:default",
+    "http:default",
+    "notification:default",
+    "log:default",
+    "sql:default"
+  ]
+}

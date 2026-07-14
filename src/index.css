@@ -4,3 +4,11 @@
   --color-brand-green: #8DC63F;
   --color-brand-light: #F9FFF0;
 }
+
+#root > div > main > div > div > div:nth-child(2) > div {
+  border: 1px solid #e2e8f0;
+  border-radius: 1rem;
+  padding: 1.5rem;
+  background-color: #f8fafc;
+  box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1);
+}
