@@ -34,7 +34,7 @@ export async function extrairDadosMultiplasNotas(caminhosImagens: string[]) {
         textoBruto: text
       });
 
-      console.log(`✅ Concluído: ${caminho} - CNPJ: ${cnpj}`);
+      console.log(`✅ Concluído: ${caminho}`);
 
     } catch (error) {
       console.error(`❌ Erro ao ler a nota ${caminho}:`, error);

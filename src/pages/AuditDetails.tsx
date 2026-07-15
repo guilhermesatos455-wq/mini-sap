@@ -181,7 +181,6 @@ const AuditDetailsPage: React.FC = () => {
   };
 
   const [searchTerm, setSearchTerm] = useState('');
-  const [localSearch, setLocalSearch] = useState('');
   const [filterCfop, setFilterCfop] = useState(filterCfopDefault);
   const [filterSupplier, setFilterSupplier] = useState(filterSupplierDefault);
   const [filterTipo, setFilterTipo] = useState<'Todos' | 'Divergências' | 'acima do custo padrão' | 'abaixo do custo padrão' | 'Não Encontrado no CKM3' | 'Sem Divergência'>(filterTipoDefault as any);
@@ -968,13 +967,6 @@ const AuditDetailsPage: React.FC = () => {
     addToast('Filtros salvos com sucesso!', 'success');
   }, [filterCfop, filterSupplier, filterTipo, filterImpactoMin, setFilterCfopDefault, setFilterSupplierDefault, setFilterTipoDefault, setFilterImpactoMinDefault, addToast]);
 
-  // Debounce search
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      setSearchTerm(localSearch);
-    }, 300);
-    return () => clearTimeout(timer);
-  }, [localSearch]);
 
   const handleExportActionPlan = React.useCallback(() => {
     if (!resultado) return;
@@ -1920,8 +1912,8 @@ const AuditDetailsPage: React.FC = () => {
             <input 
               type="text" 
               placeholder="Buscar material, fornecedor..."
-              value={localSearch}
-              onChange={(e) => setLocalSearch(e.target.value)}
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
               className={`pl-10 pr-4 py-2.5 rounded-xl text-sm transition-all focus:ring-2 outline-none border w-full sm:w-64 ${darkMode ? 'bg-slate-900 border-slate-800 text-slate-200 focus:ring-[#8DC63F]/50' : 'bg-slate-50 border-slate-200 focus:bg-white focus:ring-[#8DC63F]/30 text-slate-700'}`}
             />
           </div>
@@ -2146,7 +2138,7 @@ const AuditDetailsPage: React.FC = () => {
                     setFilterCategoriaNF([]);
                     setFilterOrigemMaterial([]);
                     setFilterEmpresa([]);
-                    setLocalSearch(''); 
+                    setSearchTerm(''); 
                     setShowAdvancedFilter(false);
                     setAdvancedFilterExpression('');
                     setShowColunas({
@@ -2937,7 +2929,7 @@ const AuditDetailsPage: React.FC = () => {
                         <button 
                           onClick={() => {
                             setActiveTab('divergencias');
-                            setLocalSearch(d.descricao);
+                            setSearchTerm(d.descricao);
                           }}
                           className={`text-[10px] font-bold uppercase tracking-wider px-3 py-1.5 rounded-lg transition-colors ${
                             darkMode ? 'bg-slate-700 text-slate-300 hover:bg-slate-600' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
@@ -3403,214 +3395,214 @@ const AuditDetailsPage: React.FC = () => {
                   TableRow: (props) => <tr {...props} />,
                 }}
                 fixedHeaderContent={() => (
-                  <div className={`flex items-center text-[10px] uppercase tracking-wider font-bold border-b sticky top-0 z-20 h-10 ${darkMode ? 'bg-slate-800/50 border-slate-800 text-slate-500' : 'bg-gray-50 border-gray-100 text-gray-400'}`}>
+                  <tr className={`text-[10px] uppercase tracking-wider font-bold border-b sticky top-0 z-20 h-10 ${darkMode ? 'bg-slate-800/50 border-slate-800 text-slate-500' : 'bg-gray-50 border-gray-100 text-gray-400'}`}>
                     {activeTab === 'cfop' && (
                       <>
-                        <div className="px-2 shrink-0 w-32">CFOP</div>
-                        <div className="px-2 shrink-0 w-32 text-right">Total Itens</div>
-                        <div className="px-2 shrink-0 w-40 text-right">Divergências %</div>
-                        <div className="px-2 shrink-0 w-48 text-right">Acima do Custo Padrão</div>
-                        <div className="px-2 shrink-0 w-48 text-right">Abaixo dos Custo Padrão</div>
-                        <div className="px-2 shrink-0 w-48 text-right">Impacto Líquido</div>
-                        <div className="px-2 shrink-0 w-24 text-center">Ações</div>
+                        <th className="px-2 w-32 text-left">CFOP</th>
+                        <th className="px-2 w-32 text-right">Total Itens</th>
+                        <th className="px-2 w-40 text-right">Divergências %</th>
+                        <th className="px-2 w-48 text-right">Acima do Custo Padrão</th>
+                        <th className="px-2 w-48 text-right">Abaixo dos Custo Padrão</th>
+                        <th className="px-2 w-48 text-right">Impacto Líquido</th>
+                        <th className="px-2 w-24 text-center">Ações</th>
                       </>
                     )}
                     {activeTab === 'fornecedores' && (
                       <>
-                        <div className="px-2 shrink-0 w-80">Fornecedor</div>
-                        <div className="px-2 shrink-0 w-32 text-right">Total Itens</div>
-                        <div className="px-2 shrink-0 w-40 text-right">Divergências %</div>
-                        <div className="px-2 shrink-0 w-48 text-right">Acima do Custo Padrão</div>
-                        <div className="px-2 shrink-0 w-48 text-right">Abaixo dos Custo Padrão</div>
-                        <div className="px-2 shrink-0 w-48 text-right">Impacto Líquido</div>
-                        <div className="px-2 shrink-0 w-24 text-center">Ações</div>
+                        <th className="px-2 w-80 text-left">Fornecedor</th>
+                        <th className="px-2 w-32 text-right">Total Itens</th>
+                        <th className="px-2 w-40 text-right">Divergências %</th>
+                        <th className="px-2 w-48 text-right">Acima do Custo Padrão</th>
+                        <th className="px-2 w-48 text-right">Abaixo dos Custo Padrão</th>
+                        <th className="px-2 w-48 text-right">Impacto Líquido</th>
+                        <th className="px-2 w-24 text-center">Ações</th>
                       </>
                     )}
                     {activeTab === 'top5' && (
                       <>
-                        <div className="px-2 shrink-0 w-80">Material / Descrição</div>
-                        <div className="px-2 shrink-0 w-32 text-right">Total Itens</div>
-                        <div className="px-2 shrink-0 w-40 text-right">Divergências %</div>
-                        <div className="px-2 shrink-0 w-48 text-right">Acima do Custo Padrão</div>
-                        <div className="px-2 shrink-0 w-48 text-right">Abaixo dos Custo Padrão</div>
-                        <div className="px-2 shrink-0 w-48 text-right">Impacto Líquido</div>
-                        <div className="px-2 shrink-0 w-24 text-center">Ações</div>
+                        <th className="px-2 w-80 text-left">Material / Descrição</th>
+                        <th className="px-2 w-32 text-right">Total Itens</th>
+                        <th className="px-2 w-40 text-right">Divergências %</th>
+                        <th className="px-2 w-48 text-right">Acima do Custo Padrão</th>
+                        <th className="px-2 w-48 text-right">Abaixo dos Custo Padrão</th>
+                        <th className="px-2 w-48 text-right">Impacto Líquido</th>
+                        <th className="px-2 w-24 text-center">Ações</th>
                       </>
                     )}
                     {activeTab === 'pivot' && (
                       <>
-                        <div className="px-2 shrink-0 w-32">CFOP</div>
-                        <div className="px-2 shrink-0 w-64">Fornecedor</div>
-                        <div className="px-2 shrink-0 w-64">Material</div>
-                        <div className="px-2 shrink-0 w-32 text-right">Total Itens</div>
-                        <div className="px-2 shrink-0 w-40 text-right">Divergências %</div>
-                        <div className="px-2 shrink-0 w-48 text-right">Impacto Líquido</div>
-                        <div className="px-2 shrink-0 w-24 text-center">Ações</div>
+                        <th className="px-2 w-32 text-left">CFOP</th>
+                        <th className="px-2 w-64 text-left">Fornecedor</th>
+                        <th className="px-2 w-64 text-left">Material</th>
+                        <th className="px-2 w-32 text-right">Total Itens</th>
+                        <th className="px-2 w-40 text-right">Divergências %</th>
+                        <th className="px-2 w-48 text-right">Impacto Líquido</th>
+                        <th className="px-2 w-24 text-center">Ações</th>
                       </>
                     )}
-                  </div>
+                  </tr>
                 )}
                 itemContent={(_index, item) => {
                   const divPerc = (item.countDiv / item.count) * 100;
                   
                   if (activeTab === 'cfop') {
-                    return (
-                      <div className={`flex items-center text-xs transition-colors h-12 border-b ${darkMode ? 'border-slate-800/50 hover:bg-slate-800/50' : 'border-gray-100 hover:bg-gray-50'}`}>
-                        <div className="px-2 shrink-0 w-32 font-bold text-[#8DC63F]">{item.cfop}</div>
-                        <div className="px-2 shrink-0 w-32 text-right font-medium">{item.count}</div>
-                        <div className="px-2 shrink-0 w-40 text-right">
-                          <div className="flex flex-col items-end justify-center gap-1">
-                            <span className={`font-bold ${divPerc > 20 ? 'text-red-500' : (darkMode ? 'text-slate-300' : 'text-gray-700')}`}>
-                              {divPerc.toFixed(1)}%
-                            </span>
-                            <div className={`w-16 h-1 rounded-full overflow-hidden ${darkMode ? 'bg-slate-700' : 'bg-gray-200'}`}>
-                              <div 
-                                className={`h-full transition-all duration-500 ${divPerc > 50 ? 'bg-red-500' : divPerc > 20 ? 'bg-orange-400' : 'bg-[#8DC63F]'}`}
-                                style={{ width: `${divPerc}%` }}
-                              />
+                      return (
+                        <>
+                          <td className={`text-xs transition-colors h-12 border-b ${darkMode ? 'border-slate-800/50 hover:bg-slate-800/50' : 'border-gray-100 hover:bg-gray-50'} px-2 w-32 font-bold text-[#8DC63F]`}>{item.cfop}</td>
+                          <td className={`text-xs transition-colors h-12 border-b ${darkMode ? 'border-slate-800/50 hover:bg-slate-800/50' : 'border-gray-100 hover:bg-gray-50'} px-2 w-32 text-right font-medium`}>{item.count}</td>
+                          <td className={`text-xs transition-colors h-12 border-b ${darkMode ? 'border-slate-800/50 hover:bg-slate-800/50' : 'border-gray-100 hover:bg-gray-50'} px-2 w-40 text-right`}>
+                            <div className="flex flex-col items-end justify-center gap-1">
+                              <span className={`font-bold ${divPerc > 20 ? 'text-red-500' : (darkMode ? 'text-slate-300' : 'text-gray-700')}`}>
+                                {divPerc.toFixed(1)}%
+                              </span>
+                              <div className={`w-16 h-1 rounded-full overflow-hidden ${darkMode ? 'bg-slate-700' : 'bg-gray-200'}`}>
+                                <div 
+                                  className={`h-full transition-all duration-500 ${divPerc > 50 ? 'bg-red-500' : divPerc > 20 ? 'bg-orange-400' : 'bg-[#8DC63F]'}`}
+                                  style={{ width: `${divPerc}%` }}
+                                />
+                              </div>
                             </div>
-                          </div>
-                        </div>
-                        <div className="px-2 shrink-0 w-48 text-right font-bold text-red-500">{formatoMoeda.format(item.prejuizo)}</div>
-                        <div className="px-2 shrink-0 w-48 text-right font-bold text-[#8DC63F]">{formatoMoeda.format(item.economia)}</div>
-                        <div className={`px-2 shrink-0 w-48 text-right font-bold ${item.prejuizo - item.economia > 0 ? 'text-red-500' : 'text-[#8DC63F]'}`}>
-                          {formatoMoeda.format(item.prejuizo - item.economia)}
-                        </div>
-                        <div className="px-2 shrink-0 w-24 flex justify-center">
-                          <button 
-                            onClick={() => handleFilterBySummary('cfop', item.cfop)}
-                            className={`p-1.5 rounded-lg transition-all ${darkMode ? 'bg-slate-800 text-slate-400 hover:text-[#8DC63F]' : 'bg-gray-100 text-gray-500 hover:text-[#78AF32]'}`}
-                            title="Ver itens deste CFOP"
-                          >
-                            <ArrowRight className="w-3 h-3" />
-                          </button>
-                        </div>
-                      </div>
-                    );
+                          </td>
+                          <td className={`text-xs transition-colors h-12 border-b ${darkMode ? 'border-slate-800/50 hover:bg-slate-800/50' : 'border-gray-100 hover:bg-gray-50'} px-2 w-48 text-right font-bold text-red-500`}>{formatoMoeda.format(item.prejuizo)}</td>
+                          <td className={`text-xs transition-colors h-12 border-b ${darkMode ? 'border-slate-800/50 hover:bg-slate-800/50' : 'border-gray-100 hover:bg-gray-50'} px-2 w-48 text-right font-bold text-[#8DC63F]`}>{formatoMoeda.format(item.economia)}</td>
+                          <td className={`text-xs transition-colors h-12 border-b ${darkMode ? 'border-slate-800/50 hover:bg-slate-800/50' : 'border-gray-100 hover:bg-gray-50'} px-2 w-48 text-right font-bold ${item.prejuizo - item.economia > 0 ? 'text-red-500' : 'text-[#8DC63F]'}`}>
+                            {formatoMoeda.format(item.prejuizo - item.economia)}
+                          </td>
+                          <td className={`text-xs transition-colors h-12 border-b ${darkMode ? 'border-slate-800/50 hover:bg-slate-800/50' : 'border-gray-100 hover:bg-gray-50'} px-2 w-24 flex justify-center items-center`}>
+                            <button 
+                              onClick={() => handleFilterBySummary('cfop', item.cfop)}
+                              className={`p-1.5 rounded-lg transition-all ${darkMode ? 'bg-slate-800 text-slate-400 hover:text-[#8DC63F]' : 'bg-gray-100 text-gray-500 hover:text-[#78AF32]'}`}
+                              title="Ver itens deste CFOP"
+                            >
+                              <ArrowRight className="w-3 h-3" />
+                            </button>
+                          </td>
+                        </>
+                      );
                   }
 
                   if (activeTab === 'fornecedores') {
-                    return (
-                      <div className={`flex items-center text-xs transition-colors h-12 border-b ${darkMode ? 'border-slate-800/50 hover:bg-slate-800/50' : 'border-gray-100 hover:bg-gray-50'}`}>
-                        <div className="px-2 shrink-0 w-80 font-bold truncate">{item.name}</div>
-                        <div className="px-2 shrink-0 w-32 text-right font-medium">{item.count}</div>
-                        <div className="px-2 shrink-0 w-40 text-right">
-                          <div className="flex flex-col items-end justify-center gap-1">
-                            <span className={`font-bold ${divPerc > 20 ? 'text-red-500' : (darkMode ? 'text-slate-300' : 'text-gray-700')}`}>
-                              {divPerc.toFixed(1)}%
-                            </span>
-                            <div className={`w-16 h-1 rounded-full overflow-hidden ${darkMode ? 'bg-slate-700' : 'bg-gray-200'}`}>
-                              <div 
-                                className={`h-full transition-all duration-500 ${divPerc > 50 ? 'bg-red-500' : divPerc > 20 ? 'bg-orange-400' : 'bg-[#8DC63F]'}`}
-                                style={{ width: `${divPerc}%` }}
-                              />
+                      return (
+                        <>
+                          <td className={`text-xs transition-colors h-12 border-b ${darkMode ? 'border-slate-800/50 hover:bg-slate-800/50' : 'border-gray-100 hover:bg-gray-50'} px-2 w-80 font-bold truncate`}>{item.name}</td>
+                          <td className={`text-xs transition-colors h-12 border-b ${darkMode ? 'border-slate-800/50 hover:bg-slate-800/50' : 'border-gray-100 hover:bg-gray-50'} px-2 w-32 text-right font-medium`}>{item.count}</td>
+                          <td className={`text-xs transition-colors h-12 border-b ${darkMode ? 'border-slate-800/50 hover:bg-slate-800/50' : 'border-gray-100 hover:bg-gray-50'} px-2 w-40 text-right`}>
+                            <div className="flex flex-col items-end justify-center gap-1">
+                              <span className={`font-bold ${divPerc > 20 ? 'text-red-500' : (darkMode ? 'text-slate-300' : 'text-gray-700')}`}>
+                                {divPerc.toFixed(1)}%
+                              </span>
+                              <div className={`w-16 h-1 rounded-full overflow-hidden ${darkMode ? 'bg-slate-700' : 'bg-gray-200'}`}>
+                                <div 
+                                  className={`h-full transition-all duration-500 ${divPerc > 50 ? 'bg-red-500' : divPerc > 20 ? 'bg-orange-400' : 'bg-[#8DC63F]'}`}
+                                  style={{ width: `${divPerc}%` }}
+                                />
+                              </div>
                             </div>
-                          </div>
-                        </div>
-                        <div className="px-2 shrink-0 w-48 text-right font-bold text-red-500">{formatoMoeda.format(item.prejuizo)}</div>
-                        <div className="px-2 shrink-0 w-48 text-right font-bold text-[#8DC63F]">{formatoMoeda.format(item.economia)}</div>
-                        <div className={`px-2 shrink-0 w-48 text-right font-bold ${item.prejuizo - item.economia > 0 ? 'text-red-500' : 'text-[#8DC63F]'}`}>
-                          {formatoMoeda.format(item.prejuizo - item.economia)}
-                        </div>
-                        <div className="px-2 shrink-0 w-24 flex justify-center">
-                          <button 
-                            onClick={() => handleFilterBySummary('fornecedor', item.name)}
-                            className={`p-1.5 rounded-lg transition-all ${darkMode ? 'bg-slate-800 text-slate-400 hover:text-[#8DC63F]' : 'bg-gray-100 text-gray-500 hover:text-[#78AF32]'}`}
-                            title="Ver itens deste fornecedor"
-                          >
-                            <ArrowRight className="w-3 h-3" />
-                          </button>
-                        </div>
-                      </div>
-                    );
+                          </td>
+                          <td className={`text-xs transition-colors h-12 border-b ${darkMode ? 'border-slate-800/50 hover:bg-slate-800/50' : 'border-gray-100 hover:bg-gray-50'} px-2 w-48 text-right font-bold text-red-500`}>{formatoMoeda.format(item.prejuizo)}</td>
+                          <td className={`text-xs transition-colors h-12 border-b ${darkMode ? 'border-slate-800/50 hover:bg-slate-800/50' : 'border-gray-100 hover:bg-gray-50'} px-2 w-48 text-right font-bold text-[#8DC63F]`}>{formatoMoeda.format(item.economia)}</td>
+                          <td className={`text-xs transition-colors h-12 border-b ${darkMode ? 'border-slate-800/50 hover:bg-slate-800/50' : 'border-gray-100 hover:bg-gray-50'} px-2 w-48 text-right font-bold ${item.prejuizo - item.economia > 0 ? 'text-red-500' : 'text-[#8DC63F]'}`}>
+                            {formatoMoeda.format(item.prejuizo - item.economia)}
+                          </td>
+                          <td className={`text-xs transition-colors h-12 border-b ${darkMode ? 'border-slate-800/50 hover:bg-slate-800/50' : 'border-gray-100 hover:bg-gray-50'} px-2 w-24 flex justify-center items-center`}>
+                            <button 
+                              onClick={() => handleFilterBySummary('fornecedor', item.name)}
+                              className={`p-1.5 rounded-lg transition-all ${darkMode ? 'bg-slate-800 text-slate-400 hover:text-[#8DC63F]' : 'bg-gray-100 text-gray-500 hover:text-[#78AF32]'}`}
+                              title="Ver itens deste fornecedor"
+                            >
+                              <ArrowRight className="w-3 h-3" />
+                            </button>
+                          </td>
+                        </>
+                      );
                   }
 
                   if (activeTab === 'top5') {
                     return (
-                      <div className={`flex items-center text-xs transition-colors h-12 border-b ${darkMode ? 'border-slate-800/50 hover:bg-slate-800/50' : 'border-gray-100 hover:bg-gray-50'}`}>
-                        <div className="px-2 shrink-0 w-80">
-                          <div className="flex flex-col items-start justify-center overflow-hidden">
-                            <div className="flex items-center gap-1.5 mb-0.5">
-                              <span className={`text-[9px] font-mono px-1.5 py-0.5 rounded ${darkMode ? 'bg-slate-800 text-slate-400' : 'bg-gray-100 text-gray-500'}`}>
-                                {item.material}
+                        <>
+                          <td className={`text-xs transition-colors h-12 border-b ${darkMode ? 'border-slate-800/50 hover:bg-slate-800/50' : 'border-gray-100 hover:bg-gray-50'} px-2 w-80`}>
+                            <div className="flex flex-col items-start justify-center overflow-hidden">
+                              <div className="flex items-center gap-1.5 mb-0.5">
+                                <span className={`text-[9px] font-mono px-1.5 py-0.5 rounded ${darkMode ? 'bg-slate-800 text-slate-400' : 'bg-gray-100 text-gray-500'}`}>
+                                  {item.material}
+                                </span>
+                              </div>
+                              <div className="font-bold truncate w-full text-xs" title={item.descricao}>{item.descricao}</div>
+                            </div>
+                          </td>
+                          <td className={`text-xs transition-colors h-12 border-b ${darkMode ? 'border-slate-800/50 hover:bg-slate-800/50' : 'border-gray-100 hover:bg-gray-50'} px-2 w-32 text-right font-medium`}>{item.count}</td>
+                          <td className={`text-xs transition-colors h-12 border-b ${darkMode ? 'border-slate-800/50 hover:bg-slate-800/50' : 'border-gray-100 hover:bg-gray-50'} px-2 w-40 text-right`}>
+                            <div className="flex flex-col items-end justify-center gap-1">
+                              <span className={`font-bold ${divPerc > 20 ? 'text-red-500' : (darkMode ? 'text-slate-300' : 'text-gray-700')}`}>
+                                {divPerc.toFixed(1)}%
                               </span>
+                              <div className={`w-16 h-1 rounded-full overflow-hidden ${darkMode ? 'bg-slate-700' : 'bg-gray-200'}`}>
+                                <div 
+                                  className={`h-full transition-all duration-500 ${divPerc > 50 ? 'bg-red-500' : divPerc > 20 ? 'bg-orange-400' : 'bg-[#8DC63F]'}`}
+                                  style={{ width: `${divPerc}%` }}
+                                />
+                              </div>
                             </div>
-                            <div className="font-bold truncate w-full text-xs" title={item.descricao}>{item.descricao}</div>
-                          </div>
-                        </div>
-                        <div className="px-2 shrink-0 w-32 text-right font-medium">{item.count}</div>
-                        <div className="px-2 shrink-0 w-40 text-right">
-                          <div className="flex flex-col items-end justify-center gap-1">
-                            <span className={`font-bold ${divPerc > 20 ? 'text-red-500' : (darkMode ? 'text-slate-300' : 'text-gray-700')}`}>
-                              {divPerc.toFixed(1)}%
-                            </span>
-                            <div className={`w-16 h-1 rounded-full overflow-hidden ${darkMode ? 'bg-slate-700' : 'bg-gray-200'}`}>
-                              <div 
-                                className={`h-full transition-all duration-500 ${divPerc > 50 ? 'bg-red-500' : divPerc > 20 ? 'bg-orange-400' : 'bg-[#8DC63F]'}`}
-                                style={{ width: `${divPerc}%` }}
-                              />
-                            </div>
-                          </div>
-                        </div>
-                        <div className="px-2 shrink-0 w-48 text-right font-bold text-red-500">{formatoMoeda.format(item.prejuizo)}</div>
-                        <div className="px-2 shrink-0 w-48 text-right font-bold text-[#8DC63F]">{formatoMoeda.format(item.economia)}</div>
-                        <div className={`px-2 shrink-0 w-48 text-right font-bold ${item.prejuizo - item.economia > 0 ? 'text-red-500' : 'text-[#8DC63F]'}`}>
-                          {formatoMoeda.format(item.prejuizo - item.economia)}
-                        </div>
-                        <div className="px-2 shrink-0 w-24 flex justify-center">
-                          <button 
-                            onClick={() => handleFilterBySummary('material', item.material)}
-                            className={`p-1.5 rounded-lg transition-all ${darkMode ? 'bg-slate-800 text-slate-400 hover:text-[#8DC63F]' : 'bg-gray-100 text-gray-500 hover:text-[#78AF32]'}`}
-                            title="Ver itens deste material"
-                          >
-                            <ArrowRight className="w-3 h-3" />
-                          </button>
-                        </div>
-                      </div>
+                          </td>
+                          <td className={`text-xs transition-colors h-12 border-b ${darkMode ? 'border-slate-800/50 hover:bg-slate-800/50' : 'border-gray-100 hover:bg-gray-50'} px-2 w-48 text-right font-bold text-red-500`}>{formatoMoeda.format(item.prejuizo)}</td>
+                          <td className={`text-xs transition-colors h-12 border-b ${darkMode ? 'border-slate-800/50 hover:bg-slate-800/50' : 'border-gray-100 hover:bg-gray-50'} px-2 w-48 text-right font-bold text-[#8DC63F]`}>{formatoMoeda.format(item.economia)}</td>
+                          <td className={`text-xs transition-colors h-12 border-b ${darkMode ? 'border-slate-800/50 hover:bg-slate-800/50' : 'border-gray-100 hover:bg-gray-50'} px-2 w-48 text-right font-bold ${item.prejuizo - item.economia > 0 ? 'text-red-500' : 'text-[#8DC63F]'}`}>
+                            {formatoMoeda.format(item.prejuizo - item.economia)}
+                          </td>
+                          <td className={`text-xs transition-colors h-12 border-b ${darkMode ? 'border-slate-800/50 hover:bg-slate-800/50' : 'border-gray-100 hover:bg-gray-50'} px-2 w-24 flex justify-center items-center`}>
+                            <button 
+                              onClick={() => handleFilterBySummary('material', item.material)}
+                              className={`p-1.5 rounded-lg transition-all ${darkMode ? 'bg-slate-800 text-slate-400 hover:text-[#8DC63F]' : 'bg-gray-100 text-gray-500 hover:text-[#78AF32]'}`}
+                              title="Ver itens deste material"
+                            >
+                              <ArrowRight className="w-3 h-3" />
+                            </button>
+                          </td>
+                        </>
                     );
                   }
 
                   if (activeTab === 'pivot') {
                     return (
-                      <div className={`flex items-center text-xs transition-colors h-12 border-b ${darkMode ? 'border-slate-800/50 hover:bg-slate-800/50' : 'border-gray-100 hover:bg-gray-50'}`}>
-                        <div className="px-2 shrink-0 w-32 font-bold text-[#8DC63F]">{item.cfop}</div>
-                        <div className="px-2 shrink-0 w-64 truncate">{item.fornecedor}</div>
-                        <div className="px-2 shrink-0 w-64">
-                          <div className="flex flex-col items-start justify-center overflow-hidden">
-                            <div className="flex items-center gap-1.5 mb-0.5">
-                              <span className={`text-[9px] font-mono px-1 py-0.5 rounded ${darkMode ? 'bg-slate-800 text-slate-400' : 'bg-gray-100 text-gray-500'}`}>
-                                {item.material}
+                        <>
+                          <td className={`text-xs transition-colors h-12 border-b ${darkMode ? 'border-slate-800/50 hover:bg-slate-800/50' : 'border-gray-100 hover:bg-gray-50'} px-2 w-32 font-bold text-[#8DC63F]`}>{item.cfop}</td>
+                          <td className={`text-xs transition-colors h-12 border-b ${darkMode ? 'border-slate-800/50 hover:bg-slate-800/50' : 'border-gray-100 hover:bg-gray-50'} px-2 w-64 truncate`}>{item.fornecedor}</td>
+                          <td className={`text-xs transition-colors h-12 border-b ${darkMode ? 'border-slate-800/50 hover:bg-slate-800/50' : 'border-gray-100 hover:bg-gray-50'} px-2 w-64`}>
+                            <div className="flex flex-col items-start justify-center overflow-hidden">
+                              <div className="flex items-center gap-1.5 mb-0.5">
+                                <span className={`text-[9px] font-mono px-1 py-0.5 rounded ${darkMode ? 'bg-slate-800 text-slate-400' : 'bg-gray-100 text-gray-500'}`}>
+                                  {item.material}
+                                </span>
+                              </div>
+                              <div className="font-medium truncate w-full text-xs" title={item.descricao}>{item.descricao}</div>
+                            </div>
+                          </td>
+                          <td className={`text-xs transition-colors h-12 border-b ${darkMode ? 'border-slate-800/50 hover:bg-slate-800/50' : 'border-gray-100 hover:bg-gray-50'} px-2 w-32 text-right font-medium`}>{item.count}</td>
+                          <td className={`text-xs transition-colors h-12 border-b ${darkMode ? 'border-slate-800/50 hover:bg-slate-800/50' : 'border-gray-100 hover:bg-gray-50'} px-2 w-40 text-right`}>
+                            <div className="flex flex-col items-end justify-center gap-1">
+                              <span className={`font-bold ${divPerc > 20 ? 'text-red-500' : (darkMode ? 'text-slate-300' : 'text-gray-700')}`}>
+                                {divPerc.toFixed(1)}%
                               </span>
                             </div>
-                            <div className="font-medium truncate w-full text-xs" title={item.descricao}>{item.descricao}</div>
-                          </div>
-                        </div>
-                        <div className="px-2 shrink-0 w-32 text-right font-medium">{item.count}</div>
-                        <div className="px-2 shrink-0 w-40 text-right">
-                          <div className="flex flex-col items-end justify-center gap-1">
-                            <span className={`font-bold ${divPerc > 20 ? 'text-red-500' : (darkMode ? 'text-slate-300' : 'text-gray-700')}`}>
-                              {divPerc.toFixed(1)}%
-                            </span>
-                          </div>
-                        </div>
-                        <div className={`px-2 shrink-0 w-48 text-right font-bold ${item.prejuizo - item.economia > 0 ? 'text-red-500' : 'text-[#8DC63F]'}`}>
-                          {formatoMoeda.format(item.prejuizo - item.economia)}
-                        </div>
-                        <div className="px-2 shrink-0 w-24 flex justify-center">
-                          <button 
-                            onClick={() => {
-                              setFilterCfop(item.cfop);
-                              setFilterSupplier(item.fornecedor);
-                              setActiveTab('divergencias');
-                              addToast(`Filtrado por CFOP ${item.cfop} e Fornecedor ${item.fornecedor}`, 'success');
-                            }}
-                            className={`p-1.5 rounded-lg transition-all ${darkMode ? 'bg-slate-800 text-slate-400 hover:text-[#8DC63F]' : 'bg-gray-100 text-gray-500 hover:text-[#78AF32]'}`}
-                            title="Ver itens desta combinação"
-                          >
-                            <ArrowRight className="w-3 h-3" />
-                          </button>
-                        </div>
-                      </div>
+                          </td>
+                          <td className={`text-xs transition-colors h-12 border-b ${darkMode ? 'border-slate-800/50 hover:bg-slate-800/50' : 'border-gray-100 hover:bg-gray-50'} px-2 w-48 text-right font-bold ${item.prejuizo - item.economia > 0 ? 'text-red-500' : 'text-[#8DC63F]'}`}>
+                            {formatoMoeda.format(item.prejuizo - item.economia)}
+                          </td>
+                          <td className={`text-xs transition-colors h-12 border-b ${darkMode ? 'border-slate-800/50 hover:bg-slate-800/50' : 'border-gray-100 hover:bg-gray-50'} px-2 w-24 flex justify-center items-center`}>
+                            <button 
+                              onClick={() => {
+                                setFilterCfop(item.cfop);
+                                setFilterSupplier(item.fornecedor);
+                                setActiveTab('divergencias');
+                                addToast(`Filtrado por CFOP ${item.cfop} e Fornecedor ${item.fornecedor}`, 'success');
+                              }}
+                              className={`p-1.5 rounded-lg transition-all ${darkMode ? 'bg-slate-800 text-slate-400 hover:text-[#8DC63F]' : 'bg-gray-100 text-gray-500 hover:text-[#78AF32]'}`}
+                              title="Ver itens desta combinação"
+                            >
+                              <ArrowRight className="w-3 h-3" />
+                            </button>
+                          </td>
+                        </>
                     );
                   }
 

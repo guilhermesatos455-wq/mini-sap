@@ -1,6 +1,16 @@
 import { Divergencia, TaxCompliance, AuditRecipe, AuditRule } from '../types/audit';
 import { safeLocalStorageSet, setLargeData } from './storageUtils';
 
+export const validateHeaders = (headers: string[], requiredHeaders: string[]): { isValid: boolean, missing: string[] } => {
+  const missing = requiredHeaders.filter(req => 
+    !headers.some(h => String(h).trim().toUpperCase().includes(req.trim().toUpperCase()))
+  );
+  return {
+    isValid: missing.length === 0,
+    missing
+  };
+};
+
 export const suggestTCodes = (item: Divergencia): { codes: string[], action: string } => {
   const codes: string[] = [];
   let action = '';

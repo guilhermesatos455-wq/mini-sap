@@ -8,15 +8,19 @@ import {
   Calendar,
   Percent,
   Hash,
-  Settings
+  Settings,
+  Trash2
 } from 'lucide-react';
 import { useAudit } from '../context/AuditContext';
 import { ordenarArquivosPorData } from '../utils/dateUtils';
+import { MANDATORY_CKM3_COLUMNS } from '../constants/auditConstants';
 import FileUploadZone from '../components/Upload/FileUploadZone';
 import ColumnMapping from '../components/Upload/ColumnMapping';
 import Logo from '../components/Logo';
 import { OCRUpload } from '../components/Upload/OCRUpload';
 import { PainelConciliacao } from '../components/Upload/PainelConciliacao';
+
+import { validateHeaders } from '../utils/auditUtils';
 
 const UploadPage: React.FC = () => {
   const navigate = useNavigate();
@@ -44,17 +48,104 @@ const UploadPage: React.FC = () => {
   const [isDraggingNF, setIsDraggingNF] = useState(false);
   const [isDraggingCKM3, setIsDraggingCKM3] = useState(false);
   const [parsedCKM3Header, setParsedCKM3Header] = useState<any[] | null>(null);
+  const [parsedNFHeader, setParsedNFHeader] = useState<any[] | null>(null);
+  const [lastDetectedCKM3Headers, setLastDetectedCKM3Headers] = useState<string[] | null>(null);
 
   const handleFileNF = React.useCallback((files: FileList | null) => {
     if (files) {
       const newFiles = Array.from(files);
-      setFilesNF((prevFiles) => {
-        const existingNames = new Set(prevFiles.map(f => f.name));
-        const filteredNewFiles = newFiles.filter(f => !existingNames.has(f.name));
-        return [...prevFiles, ...filteredNewFiles];
-      });
+      const existingNames = new Set(filesNF.map(f => f.name));
+      const filteredNewFiles = newFiles.filter(f => !existingNames.has(f.name));
+        
+      if (filteredNewFiles.length > 0) {
+          const reader = new FileReader();
+          reader.onload = (e) => {
+            const data = new Uint8Array(e.target?.result as ArrayBuffer);
+            
+            function processarUploadNFBlindado(fileData: Uint8Array) {
+              try {
+                  if (!fileData) throw new Error("Nenhum dado recebido para leitura.");
+                  const workbook = XLSX.read(fileData, { type: 'array' });
+                  
+                  // A NF está isenta da regra "RELABR", então sempre pegamos a primeira aba
+                  const nomePrimeiraAba = workbook.SheetNames[0]; 
+                  const planilha = workbook.Sheets[nomePrimeiraAba];
+                  
+                  // 1. Lê como matriz para escanear onde a tabela realmente começa
+                  const matrizDados = XLSX.utils.sheet_to_json<any[]>(planilha, { header: 1, blankrows: false });
+                  
+                  // 2. Procura a linha que contém o "CFOP" ou "MATERIAL"
+                  const indiceCabecalho = matrizDados.findIndex((linha: any[]) => 
+                      linha.some(celula => 
+                          typeof celula === 'string' && 
+                          (celula.toUpperCase().includes('CFOP') || celula.toUpperCase().includes('MATERIAL'))
+                      )
+                  );
+            
+                  if (indiceCabecalho === -1) {
+                      throw new Error(`Não foi possível localizar o cabeçalho da tabela (falta a coluna CFOP ou Material) na aba '${nomePrimeiraAba}'.`);
+                  }
+            
+                  // 3. Lê os dados brutos ignorando o "lixo" das linhas acima do cabeçalho
+                  const dadosJsonBrutos = XLSX.utils.sheet_to_json<any[]>(planilha, { 
+                      range: indiceCabecalho, 
+                      blankrows: false,
+                      defval: null
+                  });
+            
+                  // 4. Limpeza e normalização de colunas
+                  const dadosJson = dadosJsonBrutos.map((linha: any) => {
+                      const novaLinha: any = {};
+                      
+                      for (const [chave, valor] of Object.entries(linha)) {
+                          const chaveLimpa = chave.trim().toUpperCase();
+                          
+                          if (chaveLimpa.includes("CFOP")) {
+                              novaLinha["CFOP"] = valor;
+                          } else if (chaveLimpa.includes("MATERIAL") || chaveLimpa === "CÓD MATERIAL") {
+                              novaLinha["Material"] = valor;
+                          } else if (chaveLimpa.includes("PREÇO") || chaveLimpa.includes("VALOR")) {
+                              novaLinha["Preço"] = valor;
+                          } else if (chaveLimpa.includes("QTD") || chaveLimpa.includes("QUANTIDADE")) {
+                              novaLinha["Quantidade"] = valor;
+                          } else {
+                              novaLinha[chave.trim()] = valor;
+                          }
+                      }
+                      return novaLinha;
+                  });
+            
+                  if (dadosJson.length === 0) {
+                      throw new Error("O arquivo de Notas Fiscais parece estar vazio.");
+                  }
+            
+                  return dadosJson;
+              } catch (erro: any) {
+                  console.error("Falha no processamento da NF:", erro.message);
+                  addToast(erro.message, "error");
+                  return null;
+              }
+            }
+
+            const jsonData = processarUploadNFBlindado(data);
+
+            // Só adiciona a NF na tela se não houve nenhum erro estrutural
+            if (jsonData && jsonData.length > 0) {
+              // O Raio-X: Mostra exatamente quais colunas ele conseguiu mapear
+              const colunasMapeadas = Object.keys(jsonData[0] as object);
+              console.log("🕵️ Colunas Mapeadas na NF:", colunasMapeadas);
+              
+              setParsedNFHeader(colunasMapeadas);
+              
+              // Atualiza o estado visual das NFs cadastradas
+              setFilesNF(prev => [...prev, ...filteredNewFiles]);
+            }
+          };
+          reader.readAsArrayBuffer(filteredNewFiles[0]);
+      }
     }
-  }, [setFilesNF]);
+  // Dica: Adicione o addToast no array de dependências para evitar warnings do React ESLint
+  }, [setFilesNF, filesNF, addToast]);
 
   const handleRemoveFileNF = React.useCallback((fileName: string) => {
     setFilesNF(filesNF.filter(f => f.name !== fileName));
@@ -66,45 +157,179 @@ const UploadPage: React.FC = () => {
       const existingNames = new Set(filesCKM3.map(f => f.name));
       const filteredNewFiles = newFiles.filter(f => !existingNames.has(f.name));
       
-      const merged = [...filesCKM3, ...filteredNewFiles];
-      
-      // Diagnostic preview: parse the first of the newly filtered files
       if (filteredNewFiles.length > 0) {
         const reader = new FileReader();
         reader.onload = (e) => {
           const data = new Uint8Array(e.target?.result as ArrayBuffer);
-          const workbook = XLSX.read(data, { type: 'array' });
-          const sheetName = workbook.SheetNames[0];
-          const worksheet = workbook.Sheets[sheetName];
-          const jsonData = XLSX.utils.sheet_to_json<any[]>(worksheet, { header: 1 });
-          if (jsonData.length > 0) {
-            setParsedCKM3Header(jsonData[0]);
+          
+          function processarUploadBlindado(fileData: Uint8Array) {
+          try {
+              if (!fileData) throw new Error("Nenhum dado recebido para leitura.");
+              const workbook = XLSX.read(fileData, { type: 'array' });
+              const todasAsAbas = workbook.SheetNames;
+      
+              // Regra do RELABR (com o seu fallback para a primeira aba)
+              const regexAbasValidas = /RELABR(?:2[1-9]|[34]\d|50|JAN|FEV|FEB|MAR|ABR|APR|MAI|MAY|JUN|JUL|AGO|AUG|SET|SEP|OUT|OCT|NOV|DEZ|DEC)/i;
+              const abasEncontradas = todasAsAbas.filter(nome => regexAbasValidas.test(nome));
+      
+              let abaAlvo;
+              if (abasEncontradas.length > 0) {
+                  abaAlvo = abasEncontradas[0];
+              } else {
+                  console.warn("AppWarning Nenhuma aba correspondente a 'RELABR' foi encontrada. Utilizando a primeira aba como fallback.");
+                  abaAlvo = todasAsAbas[0]; // Fallback
+              }
+      
+              const planilha = workbook.Sheets[abaAlvo];
+      
+              // 1. Lê a planilha como Matriz (Array de Arrays) ignorando vazios para escanear a estrutura
+              const matrizDados = XLSX.utils.sheet_to_json<any[]>(planilha, { header: 1, blankrows: false });
+
+              // COLOQUE ESTA LINHA AQUI PARA INVESTIGARMOS:
+              console.log("🕵️ Visão Raio-X do Excel (Primeiras 15 linhas):", matrizDados.slice(0, 15));
+      
+              // 2. Procura a linha que contém os verdadeiros cabeçalhos da tabela do SAP
+              // Ele vai testar linha por linha até achar uma que tenha a palavra "MATERIAL" ou "CENTRO"
+              const indiceCabecalho = matrizDados.findIndex((linha: any[]) => 
+                  linha.some(celula => 
+                      typeof celula === 'string' && 
+                      (celula.toUpperCase().includes('MATERIAL') || celula.toUpperCase().includes('CENTRO'))
+                  )
+              );
+      
+              // Se não achou nenhuma linha com essas palavras, a planilha está incorreta
+              if (indiceCabecalho === -1) {
+                  throw new Error(`Colunas obrigatórias faltando: Não foi possível localizar a tabela de dados na aba '${abaAlvo}'. Verifique o arquivo.`);
+              }
+      
+              // 3. O PULO DO GATO: Lê a planilha novamente, mas o "range" faz ele ignorar todas as linhas acima do cabeçalho encontrado!
+              const dadosJsonBrutos = XLSX.utils.sheet_to_json<any[]>(planilha, { 
+                  range: indiceCabecalho, 
+                  blankrows: false 
+              });
+
+              // 5. Normalização inteligente de colunas (Remove espaços e traduz colunas do SAP)
+              const dadosJson = dadosJsonBrutos.map((linha: any) => {
+                  const novaLinha: any = {};
+                  
+                  // Verifica se a linha atual contém a coluna "Cód Material" de forma bruta
+                  const temCodMaterial = Object.keys(linha).some(k => k.trim() === "Cód Material");
+
+                  for (const [chave, valor] of Object.entries(linha)) {
+                      const chaveLimpa = chave.trim(); // Remove espaços como " Qtd. transação" -> "Qtd. transação"
+
+                      if (chaveLimpa === "Cód Material") {
+                          novaLinha["Material"] = valor; // Traduz código para "Material"
+                      } else if (chaveLimpa === "Material") {
+                          // Se o arquivo possui "Cód Material", a coluna "Material" do SAP é apenas o texto descritivo.
+                          if (temCodMaterial) {
+                              novaLinha["Descrição"] = valor; 
+                          } else {
+                              novaLinha["Material"] = valor;
+                          }
+                      } else if (chaveLimpa === "Qtd. transação" || chaveLimpa === "Qtd. transacao") {
+                          novaLinha["Quantidade"] = valor; // Traduz quantidade
+                      } else {
+                          novaLinha[chaveLimpa] = valor;
+                      }
+                  }
+                  return novaLinha;
+              });
+      
+              if (dadosJson.length === 0) {
+                  throw new Error(`A aba '${abaAlvo}' foi lida, mas os dados estão vazios.`);
+              }
+              
+              // Validação de colunas obrigatórias
+              const headers = Object.keys(dadosJson[0] as object);
+              console.log("CKM3 Headers Diagnostic:", headers);
+              setLastDetectedCKM3Headers(headers);
+              const missingColumns = MANDATORY_CKM3_COLUMNS.filter(col => !headers.includes(col));
+              if (missingColumns.length > 0) {
+                  throw new Error(`Colunas obrigatórias faltando: ${missingColumns.join(', ')}`);
+              }
+      
+              return dadosJson;
+          } catch (erro: any) {
+              console.error("AppError Falha no processamento da planilha:\n", erro.message);
+              addToast(erro.message, "error");
+              return null; 
           }
+        }
+
+          const jsonData = processarUploadBlindado(data);
+          
+          // VERIFICAÇÃO CHAVE: Só atualiza os estados se a validação passou
+          if (jsonData && jsonData.length > 0) {
+            setParsedCKM3Header(Object.keys(jsonData[0] as object));
+            
+            // Movemos a atualização do estado visual do arquivo para CA:
+            const merged = [...filesCKM3, ...filteredNewFiles];
+            setFilesCKM3(ordenarArquivosPorData(merged));
+          }
+          // Se jsonData for null, a função morre aqui e o arquivo não é adicionado à tela.
         };
         reader.readAsArrayBuffer(filteredNewFiles[0]);
       }
-      
-      setFilesCKM3(ordenarArquivosPorData(merged));
     }
-  }, [setFilesCKM3, filesCKM3]);
+  // Dica: Adicione o addToast no array de dependências para evitar warnings do React ESLint
+  }, [setFilesCKM3, filesCKM3, addToast]);
 
   const handleRemoveFileCKM3 = React.useCallback((fileName: string) => {
     const next = filesCKM3.filter(f => f.name !== fileName);
-    if (next.length === 0) setParsedCKM3Header(null);
+    if (next.length === 0) {
+      setParsedCKM3Header(null);
+      setLastDetectedCKM3Headers(null);
+    }
     setFilesCKM3(next);
   }, [setFilesCKM3, filesCKM3]);
+
+  const handleClearAll = React.useCallback(() => {
+    if (confirm("Tem certeza que deseja limpar todos os arquivos e dados carregados?")) {
+      setFilesNF([]);
+      setFilesCKM3([]);
+      setParsedNFHeader(null);
+      setParsedCKM3Header(null);
+      setLastDetectedCKM3Headers(null);
+      setOcrResultados([]);
+      addToast('Dados limpos com sucesso!', 'success');
+    }
+  }, [setFilesNF, setFilesCKM3, setParsedNFHeader, setParsedCKM3Header, setOcrResultados, addToast]);
 
 
   const handleProcess = React.useCallback(async () => {
     try {
+      // Validation
+      if (filesNF.length > 0 && parsedNFHeader) {
+        const { isValid, missing } = validateHeaders(parsedNFHeader, ['CFOP', 'Material', 'Preço', 'Quantidade']);
+        if (!isValid) {
+            throw new Error(`Colunas obrigatórias ausentes em Notas Fiscais: ${missing.join(', ')}`);
+        }
+      }
+      
+      if (filesCKM3.length > 0 && parsedCKM3Header) {
+        const { isValid, missing } = validateHeaders(parsedCKM3Header, ['Material', 'Quantidade', 'Centro', 'Descrição']);
+        if (!isValid) {
+            throw new Error(`Colunas obrigatórias ausentes em CKM3: ${missing.join(', ')}`);
+        }
+      }
+
       await iniciarProcessamento();
+      
+      // Trigger Power BI refresh
+      try {
+        await fetch('/api/powerbi/refresh', { method: 'POST' });
+      } catch (e) {
+        console.error('Falha ao disparar refresh do Power BI:', e);
+      }
+      
       addToast('Auditoria concluída com sucesso!', 'success');
       navigate('/dashboard');
     } catch (error: any) {
       const errorMessage = error.message || 'Ocorreu um erro inesperado durante o processamento.';
       addToast(`Falha na Auditoria: ${errorMessage}`, 'error');
     }
-  }, [iniciarProcessamento, addToast, navigate]);
+  }, [iniciarProcessamento, addToast, navigate, filesNF, filesCKM3, parsedNFHeader, parsedCKM3Header]);
 
   return (
     <div className="space-y-8">
@@ -158,6 +383,27 @@ const UploadPage: React.FC = () => {
               darkMode={darkMode}
               id="fileCKM3"
             />
+            {lastDetectedCKM3Headers && (
+              <div className={`p-4 rounded-lg border ${darkMode ? 'bg-slate-800 border-slate-700' : 'bg-gray-50 border-gray-200'}`}>
+                <h4 className={`text-xs font-bold mb-2 ${darkMode ? 'text-slate-300' : 'text-gray-700'}`}>
+                  Colunas Detectadas no CKM3:
+                </h4>
+                <div className="flex flex-wrap gap-1.5">
+                  {lastDetectedCKM3Headers.map(header => (
+                    <span 
+                      key={header} 
+                      className={`text-[10px] px-1.5 py-0.5 rounded ${
+                        MANDATORY_CKM3_COLUMNS.includes(header)
+                          ? (darkMode ? 'bg-green-900/30 text-green-400' : 'bg-green-100 text-green-700')
+                          : (darkMode ? 'bg-slate-700 text-slate-300' : 'bg-gray-200 text-gray-600')
+                      }`}
+                    >
+                      {header}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
             {parsedCKM3Header && (
               <>
               <div className={`mt-4 p-4 rounded-xl border ${darkMode ? 'bg-slate-800 border-slate-700' : 'bg-green-50 border-green-100'}`}>
@@ -198,6 +444,13 @@ const UploadPage: React.FC = () => {
           <h3 className={`flex items-center gap-2 text-lg font-bold mb-6 ${darkMode ? 'text-[#8DC63F]' : 'text-[#78AF32]'}`}>
             <Settings className="w-5 h-5" />
             Filtros e Parâmetros
+            <button 
+              onClick={handleClearAll}
+              className={`ml-auto p-2 rounded-lg transition-all ${darkMode ? 'hover:bg-slate-800 text-slate-400' : 'hover:bg-gray-100 text-gray-500'}`}
+              title="Limpar todos os dados"
+            >
+              <Trash2 className="w-4 h-4" />
+            </button>
           </h3>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">

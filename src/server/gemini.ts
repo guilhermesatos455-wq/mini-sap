@@ -22,7 +22,7 @@ export async function chatWithGemini(messages: { role: 'user' | 'assistant' | 's
 
     if (onStream) {
         const stream = await ai.models.generateContentStream({
-            model: "gemini-1.5-pro",
+            model: "gemini-1.5-flash",
             contents: formattedContents,
             config: systemInstruction ? { systemInstruction } : undefined
         });
@@ -36,7 +36,7 @@ export async function chatWithGemini(messages: { role: 'user' | 'assistant' | 's
         return fullText;
     } else {
         const response = await ai.models.generateContent({
-            model: "gemini-1.5-pro",
+            model: "gemini-1.5-flash",
             contents: formattedContents,
             config: systemInstruction ? { systemInstruction } : undefined
         });

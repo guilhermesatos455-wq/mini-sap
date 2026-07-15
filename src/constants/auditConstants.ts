@@ -44,3 +44,10 @@ export const QUICK_EXPORT_COLUMNS = new Set([
   'impactoFinanceiro',
   'tipo'
 ]);
+
+export const MANDATORY_CKM3_COLUMNS = [
+  'Material',
+  'Quantidade',
+  'Centro',
+  'Descrição'
+];
