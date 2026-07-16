@@ -1,63 +1,99 @@
-# Mini-SAP Web Auditoria 🚀
+# 📊 Mini-SAP Auditor Fiscal
 
-O **Mini-SAP Web Auditoria** é uma ferramenta de auditoria físcal e financeira inteligente, projetada para simplificar a análise de divergências entre Notas Fiscais e registros SAP (CKM3). O diferencial estratégico do projeto é o uso de **IA Local (Llamafile)**, garantindo que dados sensíveis nunca saiam do ambiente controlado.
+> Uma plataforma moderna e intuitiva de auditoria fiscal e reconciliação automática de Notas Fiscais com relatórios de sistemas ERP (SAP).
 
-## 🌟 Funcionalidades Principais
+Este projeto é uma ferramenta de auditoria de alto desempenho projetada para cruzar relatórios extraídos do SAP com arquivos de faturamento (XML, PDF e planilhas Excel). Ele automatiza o processo manual de conferência de valores, alíquotas e quantidades, gerando alertas de divergência em tempo real para evitar pagamentos indevidos e inconsistências fiscais.
 
-- **Auditoria Automatizada**: Processamento de arquivos SAP (CKM3) e Notas Fiscais para detecção de divergências de preços, quantidades e impostos.
-- **NatuAssist (IA Local)**: Assistente inteligente alimentado por um modelo Llama 8B rodando localmente (via pendrive), processando dados de auditoria com 100% de privacidade.
-- **Segurança Robusta**: Autenticação via Google Firebase vinculada à Matrícula Funcional SAP.
-- **Interface Moderna**: Dashboard responsivo com suporte a Dark Mode, gráficos de impacto financeiro e rastreabilidade de decisões.
-- **Conformidade (Compliance)**: Registro de justificativas e histórico de decisões por auditor.
+---
+
+## 🚀 Principais Funcionalidades
+
+### 📂 1. Upload Interativo (Drag-and-Drop)
+- Interface altamente polida e responsiva para arrastar e soltar arquivos.
+- Suporte a múltiplos formatos: **PDF**, **XML**, **XLSX** e **XLS**.
+- Indicadores visuais de estado de arraste e feedback instantâneo sobre arquivos anexados.
+
+### ⚙️ 2. Motor de OCR com Barra de Progresso Real
+- Integração nativa com **Tesseract.js** para leitura automática de faturas em PDF ou imagens digitalizadas.
+- Barra de progresso visual em tempo real vinculada ao fluxo de leitura do OCR para que o usuário acompanhe o processamento de arquivos pesados sem ruído ou sensação de travamento.
+
+### 🔍 3. Motor de Auditoria e Reconciliação (O Cruzamento)
+- Algoritmo inteligente que realiza a comparação campo a campo entre a **Nota Fiscal** processada e o **Relatório SAP**.
+- Detecção instantânea de divergências fiscais, como:
+  - Diferença de preços unitários (ex: Nota Fiscal indica R$ 15,00 e o SAP indica R$ 12,00).
+  - Inconsistência de quantidades de itens.
+  - Alíquotas de impostos incorretas ou divergentes.
+- Status claro para cada registro: **Reconciliado** (Verde) ou **Divergente** (Vermelho).
+
+### 🛠️ 4. Painel de Diagnóstico em Tempo Real (Debug Log Panel)
+- Monitoramento global através do `DebugLogContext` que intercepta e armazena os últimos 20 logs de erro/aviso (`console.error` e `console.warn`).
+- Botão flutuante contextual de **Logs** que aparece automaticamente após falhas de leitura ou execução.
+- Funcionalidades integradas de **Copiar Logs** e **Limpar Logs** para facilitar o diagnóstico e compartilhamento com o time técnico.
+
+---
 
 ## 🛠️ Tecnologias Utilizadas
 
-- **Frontend**: React 18, TypeScript, Tailwind CSS, Framer Motion (animações).
-- **Backend/Auth**: Firebase Authentication & Firestore.
-- **Processamento de Dados**: Web Workers para análise pesada de arquivos Excel/JSON sem travar a interface.
-- **Motor de IA**: [Llamafile](https://github.com/Mozilla-Ocho/llamafile) rodando localmente na porta 8080.
-
-## 🚀 Como Iniciar
-
-### Pré-requisitos
-
-1. **Node.js**: Instalado na versão 18 ou superior.
-2. **Ambiente Local**: Pendrive com o executável Llamafile configurado com o modelo `llama-manual`.
-
-### Instalação
-
-```bash
-# Clone o repositório
-git clone https://github.com/seu-usuario/mini-sap-web.git
-
-# Entre no diretório
-cd mini-sap-web
-
-# Instale as dependências
-npm install
-
-# Inicie o servidor de desenvolvimento
-npm run dev
-```
-
-### Configuração da IA
-
-Para que o assistente funcione, o servidor Llamafile deve estar ativo:
-1. Conecte o pendrive.
-2. Execute o servidor local:
-   ```bash
-   ./llamafile-server --model llama-manual.gguf --port 8080
-   ```
-3. O site se conectará automaticamente via `http://localhost:8080`.
-
-## 🛡️ Segurança e Privacidade
-
-- **LGPD/Privacidade**: Como os dados de auditoria são processados localmente pela IA, o projeto está em conformidade com as políticas rígidas de privacidade de dados.
-- **CORS**: Certifique-se de configurar as origens permitidas ao rodar servidores locais se necessário.
-
-## 📄 Licença
-
-Este projeto é de uso interno para auditoria SAP. Consulte os termos de uso na aba "Termos e LGPD" dentro da aplicação.
+- **React 18** (Vite) - SPA de alta performance e carregamento instantâneo.
+- **TypeScript** - Tipagem estática garantindo robustez e menos erros em produção.
+- **Tailwind CSS** - Design System minimalista, moderno e totalmente responsivo.
+- **Lucide React** - Conjunto de ícones vetoriais de alta fidelidade.
+- **Tesseract.js** - Mecanismo de Reconhecimento Óptico de Caracteres (OCR).
+- **SheetJS (XLSX)** - Leitura e parsing de planilhas complexas de relatórios SAP.
 
 ---
-Desenvolvido para modernizar a auditoria fiscal com o poder da Inteligência Artificial.
+
+## 📦 Como Instalar e Rodar o Projeto
+
+### Pré-requisitos
+Certifique-se de ter o **Node.js** (versão 18 ou superior) instalado em sua máquina.
+
+### Passos para Execução:
+
+1. **Clone o repositório:**
+   ```bash
+   git clone https://github.com/seu-usuario/mini-sap-auditor.git
+   cd mini-sap-auditor
+   ```
+
+2. **Instale as dependências:**
+   ```bash
+   npm install
+   ```
+
+3. **Inicie o servidor de desenvolvimento:**
+   ```bash
+   npm run dev
+   ```
+   *O aplicativo estará acessível por padrão no endereço `http://localhost:3000` ou conforme indicado no terminal.*
+
+4. **Gere a build de produção:**
+   ```bash
+   npm run build
+   ```
+
+---
+
+## 📁 Estrutura de Diretórios Relevante
+
+```text
+├── src/
+│   ├── components/            # Componentes reutilizáveis (DragAndDropZone, DebugLogPanel)
+│   ├── context/               # Gerenciadores de Estado (DebugLogContext para capturar erros de runtime)
+│   ├── pages/                 # Páginas principais do fluxo (Upload, Auditoria, Dashboard)
+│   ├── utils/                 # Algoritmos de validação (auditUtils.ts) e processamento
+│   ├── App.tsx                # Ponto de entrada do roteamento e casca visual
+│   ├── main.tsx               # Renderizador principal do React
+│   └── index.css              # Estilos globais e importações do Tailwind CSS
+├── package.json               # Dependências do projeto e scripts npm
+└── README.md                  # Este arquivo de documentação
+```
+
+---
+
+## 💡 Como Usar a Ferramenta
+
+1. **Carregar o Relatório SAP:** Acesse o painel e insira seu relatório de compras/pedidos extraído do SAP em formato Excel ou CSV.
+2. **Importar as Notas Fiscais:** Arraste seus arquivos XML ou PDF para a zona de upload. O app usará OCR para extrair os dados de forma automatizada.
+3. **Mapear as Colunas:** Caso as tabelas não tenham cabeçalhos padrão, use o mapeador manual para garantir que o sistema leia as colunas de preço, quantidade e ID corretamente.
+4. **Visualizar Inconsistências:** O painel de reconciliação exibirá imediatamente onde estão as diferenças para tomada de decisão ágil.
