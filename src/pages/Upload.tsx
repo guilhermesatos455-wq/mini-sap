@@ -301,7 +301,7 @@ const UploadPage: React.FC = () => {
     try {
       // Validation
       if (filesNF.length > 0 && parsedNFHeader) {
-        const { isValid, missing } = validateHeaders(parsedNFHeader, ['CFOP', 'Material', 'Preço', 'Quantidade']);
+        const { isValid, missing } = validateHeaders(parsedNFHeader, ['Material', 'Preço', 'Quantidade']);
         if (!isValid) {
             throw new Error(`Colunas obrigatórias ausentes em Notas Fiscais: ${missing.join(', ')}`);
         }
